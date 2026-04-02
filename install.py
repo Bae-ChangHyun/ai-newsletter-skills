@@ -37,11 +37,12 @@ def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
         OWNER = {owner!r}
         REPO = {repo!r}
         REF = {ref!r}
+        FALLBACK_REF = "dev"
         HOME_ROOT = Path({str(home_root)!r})
 
 
-        def download_repo() -> tuple[tempfile.TemporaryDirectory[str], Path]:
-            url = f"https://codeload.github.com/{{OWNER}}/{{REPO}}/tar.gz/{{REF}}"
+        def download_ref(target_ref: str) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+            url = f"https://codeload.github.com/{{OWNER}}/{{REPO}}/tar.gz/{{target_ref}}"
             with urllib.request.urlopen(url, timeout=30) as resp:
                 data = resp.read()
 
@@ -56,8 +57,25 @@ def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
 
             matches = [path for path in temp_dir.iterdir() if path.is_dir()]
             if len(matches) != 1:
-                raise RuntimeError(f"Unexpected archive layout for {{OWNER}}/{{REPO}}@{{REF}}")
+                raise RuntimeError(f"Unexpected archive layout for {{OWNER}}/{{REPO}}@{{target_ref}}")
             return temp_dir_ctx, matches[0]
+
+
+        def download_repo() -> tuple[tempfile.TemporaryDirectory[str], Path]:
+            temp_dir_ctx, repo_root = download_ref(REF)
+            installer = repo_root / "scripts" / "install_common.py"
+            if installer.exists():
+                return temp_dir_ctx, repo_root
+
+            temp_dir_ctx.cleanup()
+            if REF != FALLBACK_REF:
+                temp_dir_ctx, repo_root = download_ref(FALLBACK_REF)
+                installer = repo_root / "scripts" / "install_common.py"
+                if installer.exists():
+                    return temp_dir_ctx, repo_root
+            raise RuntimeError(
+                f"Bootstrap installer not found in {{OWNER}}/{{REPO}}@{{REF}} or fallback {{FALLBACK_REF}}"
+            )
 
 
         def main() -> None:
