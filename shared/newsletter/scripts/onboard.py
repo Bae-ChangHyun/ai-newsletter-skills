@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""AI 뉴스레터 인터랙티브 설정 스크립트.
+
+Usage:
+    python3 onboard.py
+
+config.json을 생성/업데이트한다.
+"""
+
+import json
+import os
+import urllib.request
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+RUNTIME_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+CONFIG_FILE = os.path.join(SCRIPT_DIR, "..", ".data", "config.json")
+
+PLATFORMS = [
+    ("hn", "HN (Hacker News) — AI 관련 글 필터링"),
+    ("reddit", "Reddit — AI 서브레딧"),
+    ("geeknews", "GeekNews (news.hada.io)"),
+    ("tldr", "TLDR — AI 뉴스레터 RSS"),
+    ("threads", "Threads — AI 인플루언서 (RSSHub 필요)"),
+    ("velopers", "Velopers (velopers.kr)"),
+    ("devday", "DevDay (devday.kr)"),
+]
+
+DEFAULT_SUBREDDITS = [
+    "Anthropic", "ArtificialInteligence", "ClaudeAI", "GithubCopilot",
+    "LocalLLaMA", "ollama", "OpenAI", "openclaw", "opensource", "Qwen_AI", "Vllm",
+]
+
+DEFAULT_THREADS_ACCOUNTS = ["choi.openai", "claudeai", "programmingzombie", "feelfree_ai"]
+DEFAULT_RSSHUB_URL = "http://localhost:1200"
+
+SCHEDULES = [
+    ("*/30 * * * *", "30분마다"),
+    ("0 * * * *", "1시간마다"),
+    ("0 */2 * * *", "2시간마다"),
+    ("0 0 * * *", "매일"),
+]
+
+
+def load_existing():
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+def prompt_platforms(existing):
+    current = existing.get("platforms", [p[0] for p in PLATFORMS])
+    print("\n📡 수집할 플랫폼을 선택하세요 (번호, 콤마 구분)")
+    print("   전체 선택: Enter\n")
+    for i, (key, desc) in enumerate(PLATFORMS, 1):
+        marker = "●" if key in current else "○"
+        print(f"   {i}. {marker} {desc}")
+    print()
+    choice = input("   선택 (예: 1,2,3,5,6,7): ").strip()
+
+    if not choice:
+        return [p[0] for p in PLATFORMS]
+
+    selected = []
+    for c in choice.replace(" ", "").split(","):
+        try:
+            idx = int(c) - 1
+            if 0 <= idx < len(PLATFORMS):
+                selected.append(PLATFORMS[idx][0])
+        except ValueError:
+            pass
+    return selected if selected else [p[0] for p in PLATFORMS]
+
+
+def prompt_subreddits(existing):
+    current = existing.get("subreddits", DEFAULT_SUBREDDITS)
+    print(f"\n   Reddit 서브레딧 (현재: {', '.join(current)})")
+    choice = input("   변경할 내용이 있으면 입력, 없으면 Enter: ").strip()
+    if not choice:
+        return current
+    return [s.strip() for s in choice.split(",") if s.strip()]
+
+
+def prompt_threads(existing):
+    current_url = existing.get("rsshub_url", DEFAULT_RSSHUB_URL)
+    print("\n   Threads는 RSSHub 서버가 필요합니다.")
+    print(f"   기본값: {DEFAULT_RSSHUB_URL}")
+    if current_url:
+        print(f"   현재 설정: {current_url}")
+
+    raw = input("   RSSHub URL (Enter면 기본값 사용): ").strip()
+    url = raw or current_url or DEFAULT_RSSHUB_URL
+
+    try:
+        health_url = url.rstrip("/") + "/healthz"
+        req = urllib.request.Request(health_url)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if 200 <= resp.status < 400:
+                print(f"   ✓ RSSHub 연결 확인: {health_url}")
+                return url
+    except Exception:
+        try:
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if 200 <= resp.status < 400:
+                    print(f"   ✓ RSSHub 연결 확인: {url}")
+                    return url
+        except Exception as e:
+            print(f"   ⚠ RSSHub 연결 실패: {e}")
+
+    print("   → Threads를 제외합니다.")
+    print("   → RSSHub를 먼저 실행한 뒤 다시 onboard 하세요.")
+    print("   → 예: docker run -d --name rsshub -p 1200:1200 diygod/rsshub")
+    return ""
+
+
+def prompt_telegram(existing):
+    tg = existing.get("telegram", {})
+    print("\n📱 Telegram 전송 설정")
+    choice = input("   Telegram으로 뉴스를 전송할까요? (y/n, 기본: y): ").strip().lower()
+    if choice == "n":
+        return {"enabled": False}
+
+    # bot token
+    current_token = tg.get("bot_token", "")
+    if current_token:
+        masked = current_token[:8] + "..." + current_token[-4:]
+        print(f"   현재 봇 토큰: {masked}")
+        token = input("   새 토큰 입력 (유지하려면 Enter): ").strip()
+        if not token:
+            token = current_token
+    else:
+        token = input("   Telegram Bot 토큰 (@BotFather에서 발급): ").strip()
+        if not token:
+            print("   ⚠ 토큰 없이는 Telegram 전송 불가. 건너뜁니다.")
+            return {"enabled": False}
+
+    # chat_id 자동 조회
+    current_chat_id = tg.get("chat_id", "")
+    print("\n   chat_id를 자동 조회합니다...")
+    try:
+        url = f"https://api.telegram.org/bot{token}/getUpdates"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            if data.get("result"):
+                chat_id = str(data["result"][-1]["message"]["chat"]["id"])
+                print(f"   ✓ chat_id: {chat_id}")
+                confirm = input("   이 ID로 설정할까요? (y/n, 기본: y): ").strip().lower()
+                if confirm == "n":
+                    chat_id = input("   chat_id 직접 입력: ").strip()
+            else:
+                print("   ⚠ 봇에게 아무 메시지를 보낸 후 다시 시도하세요.")
+                if current_chat_id:
+                    print(f"   기존 chat_id 사용: {current_chat_id}")
+                    chat_id = current_chat_id
+                else:
+                    chat_id = input("   chat_id 직접 입력 (없으면 Enter): ").strip()
+    except Exception as e:
+        print(f"   ⚠ 조회 실패: {e}")
+        if current_chat_id:
+            chat_id = current_chat_id
+            print(f"   기존 chat_id 사용: {chat_id}")
+        else:
+            chat_id = input("   chat_id 직접 입력: ").strip()
+
+    if not chat_id:
+        print("   ⚠ chat_id 없이는 전송 불가. 건너뜁니다.")
+        return {"enabled": False}
+
+    return {"enabled": True, "bot_token": token, "chat_id": chat_id}
+
+
+def prompt_schedule(existing):
+    current = existing.get("schedule", {})
+    print("\n⏰ 수집 주기")
+    for i, (cron, label) in enumerate(SCHEDULES, 1):
+        marker = "●" if current.get("cron") == cron else "○"
+        print(f"   {i}. {marker} {label}")
+    choice = input("\n   선택 (기본: 2): ").strip()
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(SCHEDULES):
+            return {"cron": SCHEDULES[idx][0], "label": SCHEDULES[idx][1]}
+    except (ValueError, IndexError):
+        pass
+    return {"cron": SCHEDULES[1][0], "label": SCHEDULES[1][1]}
+
+
+def main():
+    print("=" * 50)
+    print("  📡 AI 뉴스레터 설정")
+    print("=" * 50)
+
+    existing = load_existing()
+
+    # 1. 플랫폼
+    platforms = prompt_platforms(existing)
+
+    # 2. 플랫폼별 상세
+    config = {"platforms": platforms}
+
+    if "reddit" in platforms:
+        config["subreddits"] = prompt_subreddits(existing)
+
+    if "threads" in platforms:
+        rsshub_url = prompt_threads(existing)
+        if rsshub_url:
+            config["rsshub_url"] = rsshub_url
+            config["threads_accounts"] = existing.get("threads_accounts", DEFAULT_THREADS_ACCOUNTS)
+        else:
+            config["platforms"] = [p for p in platforms if p != "threads"]
+            print("   → Threads 제외됨")
+
+    # 3. Telegram
+    config["telegram"] = prompt_telegram(existing)
+
+    # 4. 주기
+    config["schedule"] = prompt_schedule(existing)
+
+    # 5. 저장
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+    print("\n" + "=" * 50)
+    print("  ✅ 설정 완료!")
+    print("=" * 50)
+    print(f"\n  플랫폼: {', '.join(config['platforms'])}")
+    tg = config["telegram"]
+    if tg.get("enabled"):
+        print(f"  Telegram: {tg['chat_id']}")
+    else:
+        print("  Telegram: 비활성")
+    print(f"  주기: {config['schedule']['label']}")
+    print(f"\n  설정 파일: {CONFIG_FILE}")
+    print("\n  다음 단계:")
+    manage_cron = os.path.join(RUNTIME_ROOT, "scripts", "manage_cron.py")
+    codex_runner = os.path.join(RUNTIME_ROOT, "scripts", "run_with_codex.sh")
+    claude_runner = os.path.join(RUNTIME_ROOT, "scripts", "run_with_claude.sh")
+    print(f"    python3 {manage_cron} start")
+    if os.path.exists(codex_runner):
+        print(f"    {codex_runner}")
+    if os.path.exists(claude_runner):
+        print(f"    {claude_runner}")
+    print()
+
+
+if __name__ == "__main__":
+    main()
