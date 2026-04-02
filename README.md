@@ -29,6 +29,7 @@ It keeps one shared Python runtime for collection, Telegram delivery, delivery t
 - Separate `seen` and `sent` state tracking
 - Cron-based scheduled delivery
 - Bypass-style non-interactive runners for both platforms
+- Configurable AI keyword filters and user-provided Threads handles
 
 ## Skill List
 
@@ -146,8 +147,10 @@ Runtime notes:
 `newsletter-onboard` configures:
 
 - source platforms
+- optional AI keyword filters
 - Telegram bot token and chat id
 - RSSHub URL for Threads
+- Threads handles without `@`
 - recurring schedule
 
 RSSHub behavior:
@@ -159,8 +162,7 @@ RSSHub behavior:
 
 Scheduling behavior:
 
-- `newsletter-start` installs one recurring cron entry
-- the recurring schedule is anchored from `current time + 2 minutes`
+- `newsletter-start` installs one recurring cron entry from the cron string you entered
 - `newsletter-status` shows both saved config and the current cron line
 
 Delivery behavior:

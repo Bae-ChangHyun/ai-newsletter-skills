@@ -8,14 +8,14 @@ from email.utils import parsedate_to_datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base_collector import fetch_rss, run_collector, format_output
 
-RSSHUB_BASE = os.environ.get("RSSHUB_URL", "http://rsshub-rsshub-1:1200")
-DEFAULT_ACCOUNTS = ["choi.openai", "claudeai", "programmingzombie", "feelfree_ai"]
+RSSHUB_BASE = os.environ.get("RSSHUB_URL", "http://localhost:1200")
 OUTPUT_MAX_AGE_HOURS = 24
 
 
 def fetch_items(accounts=None):
-    if accounts is None:
-        accounts = DEFAULT_ACCOUNTS
+    if not accounts:
+        print("# WARN: no threads accounts configured", file=sys.stderr)
+        return []
     items = []
     for account in accounts:
         url = f"{RSSHUB_BASE}/threads/{account}"

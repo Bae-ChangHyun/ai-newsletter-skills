@@ -43,6 +43,10 @@ def download_repo(owner: str, repo: str, ref: str) -> tuple[tempfile.TemporaryDi
     temp_dir_ctx = tempfile.TemporaryDirectory(prefix="ai-newsletter-skills-")
     temp_dir = Path(temp_dir_ctx.name)
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+        for member in tar.getmembers():
+            member_path = temp_dir / member.name
+            if not str(member_path.resolve()).startswith(str(temp_dir.resolve())):
+                raise RuntimeError(f"Unsafe archive member: {member.name}")
         tar.extractall(temp_dir)
 
     matches = [path for path in temp_dir.iterdir() if path.is_dir()]

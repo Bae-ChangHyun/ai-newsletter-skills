@@ -17,4 +17,4 @@ NEWSLETTER_RUNNER=__RUNTIME_ROOT__/scripts/run_with_claude.sh NEWSLETTER_MARKER=
 NEWSLETTER_RUNNER=__RUNTIME_ROOT__/scripts/run_with_claude.sh NEWSLETTER_MARKER='# claude-newsletter-runtime' python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 ```
 
-반복 스케줄 자체가 현재 시각 기준 2분 뒤를 시작 시각으로 삼아 등록된다.
+반복 스케줄은 config에 저장된 cron 표현식을 그대로 등록한다.

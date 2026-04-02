@@ -18,5 +18,4 @@ python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 1. Confirm the config file exists.
 2. Run the start command.
 3. Run the status command.
-4. Explain that the recurring cron itself is anchored from 2 minutes after the current time.
-5. Report the installed recurring schedule.
+4. Report the installed recurring schedule from the saved cron string.

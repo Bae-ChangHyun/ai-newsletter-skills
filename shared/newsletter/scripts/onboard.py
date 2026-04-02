@@ -9,6 +9,7 @@ config.json을 생성/업데이트한다.
 
 import json
 import os
+import re
 import urllib.request
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -30,15 +31,9 @@ DEFAULT_SUBREDDITS = [
     "LocalLLaMA", "ollama", "OpenAI", "openclaw", "opensource", "Qwen_AI", "Vllm",
 ]
 
-DEFAULT_THREADS_ACCOUNTS = ["choi.openai", "claudeai", "programmingzombie", "feelfree_ai"]
 DEFAULT_RSSHUB_URL = "http://localhost:1200"
-
-SCHEDULES = [
-    ("*/30 * * * *", "30분마다"),
-    ("0 * * * *", "1시간마다"),
-    ("0 */2 * * *", "2시간마다"),
-    ("0 0 * * *", "매일"),
-]
+CRON_FIELD_RE = re.compile(r"^[^\s]+(?:\s+[^\s]+){4}$")
+INTERVAL_RE = re.compile(r"^\s*(\d+)\s*([mhdMHD])\s*$")
 
 
 def load_existing():
@@ -82,6 +77,19 @@ def prompt_subreddits(existing):
     return [s.strip() for s in choice.split(",") if s.strip()]
 
 
+def prompt_ai_keywords(existing):
+    current = existing.get("ai_keywords", [])
+    print("\n   AI 키워드 필터")
+    print("   뉴스 필터링에 사용할 키워드를 콤마로 입력하세요.")
+    print("   Enter만 치면 기본 내장 키워드를 사용합니다.")
+    if current:
+        print(f"   현재 설정: {', '.join(current)}")
+    choice = input("   키워드 입력: ").strip()
+    if not choice:
+        return current
+    return [k.strip().lower() for k in choice.split(",") if k.strip()]
+
+
 def prompt_threads(existing):
     current_url = existing.get("rsshub_url", DEFAULT_RSSHUB_URL)
     print("\n   Threads는 RSSHub 서버가 필요합니다.")
@@ -113,6 +121,25 @@ def prompt_threads(existing):
     print("   → RSSHub를 먼저 실행한 뒤 다시 onboard 하세요.")
     print("   → 예: docker run -d --name rsshub -p 1200:1200 diygod/rsshub")
     return ""
+
+
+def prompt_threads_accounts(existing):
+    current = existing.get("threads_accounts", [])
+    print("\n   Threads 계정")
+    print("   @ 없이 콤마로 구분해서 입력하세요.")
+    print("   Enter면 현재값 유지, 현재값도 없으면 Threads를 제외합니다.")
+    if current:
+        print(f"   현재 설정: {', '.join(current)}")
+    choice = input("   계정명 입력: ").strip()
+    if not choice:
+        return current
+
+    accounts = []
+    for handle in choice.replace("\n", ",").split(","):
+        normalized = handle.lstrip("@").strip()
+        if normalized and normalized not in accounts:
+            accounts.append(normalized)
+    return accounts
 
 
 def prompt_telegram(existing):
@@ -175,17 +202,48 @@ def prompt_telegram(existing):
 def prompt_schedule(existing):
     current = existing.get("schedule", {})
     print("\n⏰ 수집 주기")
-    for i, (cron, label) in enumerate(SCHEDULES, 1):
-        marker = "●" if current.get("cron") == cron else "○"
-        print(f"   {i}. {marker} {label}")
-    choice = input("\n   선택 (기본: 2): ").strip()
-    try:
-        idx = int(choice) - 1
-        if 0 <= idx < len(SCHEDULES):
-            return {"cron": SCHEDULES[idx][0], "label": SCHEDULES[idx][1]}
-    except (ValueError, IndexError):
-        pass
-    return {"cron": SCHEDULES[1][0], "label": SCHEDULES[1][1]}
+    print("   interval 형식 또는 cron 표현식을 직접 입력하세요.")
+    print("   interval 예: 30m, 1h, 2h, 1d")
+    print("   cron 예: 15 * * * *")
+    print("   interval 형식은 start 시점 기준 현재+2분 anchor로 등록됩니다.")
+    if current:
+        current_label = current.get("label") or current.get("expression") or current.get("cron", "")
+        print(f"   현재 설정: {current_label}")
+
+    while True:
+        raw = input("   주기 입력 (Enter면 현재값 유지, 없으면 기본 1h): ").strip()
+        if not raw:
+            if current:
+                return current
+            return {"mode": "interval", "expression": "1h", "label": "1시간마다"}
+
+        interval_match = INTERVAL_RE.match(raw)
+        if interval_match:
+            value = int(interval_match.group(1))
+            unit = interval_match.group(2).lower()
+            if value <= 0:
+                print("   ⚠ 0보다 큰 interval을 입력하세요.")
+                continue
+            if unit == "m" and 60 % value != 0:
+                print("   ⚠ 분 interval은 현재 60의 약수만 지원합니다. 예: 10m, 15m, 20m, 30m")
+                print("   ⚠ 그 외 간격은 cron 표현식을 사용하세요.")
+                continue
+            if unit == "h" and 24 % value != 0:
+                print("   ⚠ 시간 interval은 현재 24의 약수만 지원합니다. 예: 1h, 2h, 3h, 4h, 6h, 8h, 12h")
+                print("   ⚠ 그 외 간격은 cron 표현식을 사용하세요.")
+                continue
+            if unit == "d" and value != 1:
+                print("   ⚠ day interval은 현재 1d만 지원합니다. 그 외에는 cron을 사용하세요.")
+                continue
+            label_unit = {"m": "분마다", "h": "시간마다", "d": "매일"}[unit]
+            label = "매일" if unit == "d" and value == 1 else f"{value}{label_unit}"
+            return {"mode": "interval", "expression": f"{value}{unit}", "label": label}
+
+        if CRON_FIELD_RE.match(raw):
+            label = input("   표시용 라벨 (없으면 Enter): ").strip() or f"cron: {raw}"
+            return {"mode": "cron", "cron": raw, "label": label}
+
+        print("   ⚠ interval(예: 30m, 2h, 1d) 또는 5필드 cron 표현식을 입력하세요.")
 
 
 def main():
@@ -204,11 +262,20 @@ def main():
     if "reddit" in platforms:
         config["subreddits"] = prompt_subreddits(existing)
 
+    keywords = prompt_ai_keywords(existing)
+    if keywords:
+        config["ai_keywords"] = keywords
+
     if "threads" in platforms:
         rsshub_url = prompt_threads(existing)
         if rsshub_url:
             config["rsshub_url"] = rsshub_url
-            config["threads_accounts"] = existing.get("threads_accounts", DEFAULT_THREADS_ACCOUNTS)
+            threads_accounts = prompt_threads_accounts(existing)
+            if threads_accounts:
+                config["threads_accounts"] = threads_accounts
+            else:
+                config["platforms"] = [p for p in platforms if p != "threads"]
+                print("   → Threads 제외됨")
         else:
             config["platforms"] = [p for p in platforms if p != "threads"]
             print("   → Threads 제외됨")
@@ -228,11 +295,16 @@ def main():
     print("  ✅ 설정 완료!")
     print("=" * 50)
     print(f"\n  플랫폼: {', '.join(config['platforms'])}")
+    if config.get("ai_keywords"):
+        print(f"  AI 키워드: {', '.join(config['ai_keywords'])}")
     tg = config["telegram"]
     if tg.get("enabled"):
         print(f"  Telegram: {tg['chat_id']}")
     else:
         print("  Telegram: 비활성")
+    if config.get("threads_accounts"):
+        print(f"  Threads 계정: {', '.join(config['threads_accounts'])}")
+        print(f"  RSSHub: {config.get('rsshub_url', '')}")
     print(f"  주기: {config['schedule']['label']}")
     print(f"\n  설정 파일: {CONFIG_FILE}")
     print("\n  다음 단계:")

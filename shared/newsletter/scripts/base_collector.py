@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Base collector — shared logic for all newsletter platform collectors."""
 
+import functools
 import json
 import os
 import sys
@@ -10,7 +11,7 @@ from datetime import timezone, timedelta, datetime
 KST = timezone(timedelta(hours=9))
 MAX_AGE_DAYS = 30
 
-AI_KEYWORDS = [
+DEFAULT_AI_KEYWORDS = [
     "ai", "llm", "gpt", "claude", "anthropic", "openai", "gemini", "mistral",
     "llama", "qwen", "deepseek", "copilot", "chatgpt", "transformer", "diffusion",
     "stable diffusion", "midjourney", "dall-e", "sora", "neural", "machine learning",
@@ -27,11 +28,32 @@ AI_KEYWORDS = [
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", ".data")
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+
+
+@functools.lru_cache(maxsize=1)
+def load_runtime_config():
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+def get_ai_keywords():
+    config = load_runtime_config()
+    extra_keywords = config.get("ai_keywords", [])
+    merged = []
+    for keyword in DEFAULT_AI_KEYWORDS + extra_keywords:
+        normalized = keyword.strip().lower()
+        if normalized and normalized not in merged:
+            merged.append(normalized)
+    return merged
 
 
 def is_ai_related(title, url=""):
     text = (title + " " + url).lower()
-    return any(kw in text for kw in AI_KEYWORDS)
+    return any(kw in text for kw in get_ai_keywords())
 
 
 def get_seen_file(platform):

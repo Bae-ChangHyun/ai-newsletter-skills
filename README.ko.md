@@ -29,6 +29,7 @@ AI Newsletter Skills는 Claude Code와 Codex에서 같은 뉴스레터 워크플
 - `seen`과 `sent` 상태 분리 관리
 - cron 기반 자동 실행
 - 양쪽 모두 비대화형 runner 지원
+- AI 키워드 필터와 Threads 계정명을 사용자 입력으로 설정
 
 ## Skill List
 
@@ -146,8 +147,10 @@ python3 scripts/install_claude.py
 `newsletter-onboard`에서 설정하는 항목:
 
 - 수집 플랫폼
+- 선택적 AI 키워드 필터
 - Telegram bot token / chat id
 - Threads용 RSSHub URL
+- `@` 없는 Threads 계정명
 - 반복 실행 주기
 
 RSSHub 동작:
@@ -159,8 +162,7 @@ RSSHub 동작:
 
 스케줄 동작:
 
-- `newsletter-start`는 반복 cron 한 줄만 등록
-- 반복 기준 시각은 `현재 시각 + 2분`
+- `newsletter-start`는 사용자가 입력한 cron 한 줄만 등록
 - `newsletter-status`는 저장된 설정과 현재 cron 줄을 함께 보여줌
 
 전송 동작:

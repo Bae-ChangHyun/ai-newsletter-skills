@@ -25,6 +25,7 @@ cat __RUNTIME_ROOT__/.data/config.json
 
 4. Summarize:
 - selected platforms
+- AI keywords if configured
 - Telegram enabled or disabled
+- Threads handles if configured
 - chosen schedule
-
