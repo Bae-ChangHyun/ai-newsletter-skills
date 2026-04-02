@@ -19,7 +19,7 @@ python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 3. Summarize the current settings from config:
 - selected platforms
 - Telegram enabled or disabled
-- configured schedule label or cron
+- configured schedule label plus interval or cron value
 - AI keywords if configured
-- Threads accounts if configured
+- Threads accounts and RSSHub URL if configured
 4. Also report whether a recurring cron entry is currently registered.

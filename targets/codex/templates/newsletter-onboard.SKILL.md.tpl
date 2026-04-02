@@ -5,27 +5,76 @@ description: Run the interactive AI newsletter onboarding flow. Use when the use
 
 # Newsletter Onboard
 
-Run the onboarding flow directly. Do not substitute unrelated exploration.
-
-## Command
-
-```bash
-python3 __RUNTIME_ROOT__/scripts/onboard.py
-```
+Handle onboarding directly in the conversation. Do not call a separate onboarding script.
 
 ## Required behavior
 
-1. Explain briefly that the script will ask interactive terminal questions.
-2. Run the script directly.
-3. After it exits, read the saved config:
+1. Ask concise questions to collect:
+- platforms
+- optional Reddit subreddits
+- optional extra AI keywords
+- Telegram enabled/disabled
+- Telegram bot token and chat id if enabled
+- Threads enabled/disabled
+- RSSHub URL if Threads is enabled
+  - default: `http://localhost:1200`
+- Threads handles if Threads is enabled
+  - user must enter exact handles without `@`
+- schedule
+  - interval examples: `30m`, `1h`, `2h`, `1d`
+  - or a 5-field cron string
+2. If Threads is enabled, verify RSSHub connectivity before saving:
+- try `__RUNTIME_ROOT__/scripts` adjacent runtime config with:
+```bash
+python3 - <<'PY'
+import sys, urllib.request
+base = sys.argv[1].rstrip('/')
+for url in (base + '/healthz', base):
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            if 200 <= resp.status < 400:
+                print(url)
+                raise SystemExit(0)
+    except Exception:
+        pass
+raise SystemExit(1)
+PY "RSSHUB_URL"
+```
+- if the check fails, explain that RSSHub must be running first and disable `threads`
+3. Write `__RUNTIME_ROOT__/.data/config.json` directly.
+4. After saving, read the file back:
 
 ```bash
+mkdir -p __RUNTIME_ROOT__/.data
 cat __RUNTIME_ROOT__/.data/config.json
 ```
-
-4. Summarize:
+5. Summarize:
 - selected platforms
 - AI keywords if configured
 - Telegram enabled or disabled
-- Threads handles if configured
+- Threads handles and RSSHub URL if configured
 - chosen schedule
+
+## Config shape
+
+Write JSON in this shape, omitting unused optional keys:
+
+```json
+{
+  "platforms": ["hn", "reddit", "tldr"],
+  "subreddits": ["OpenAI", "LocalLLaMA"],
+  "ai_keywords": ["agent", "open source"],
+  "rsshub_url": "http://localhost:1200",
+  "threads_accounts": ["claudeai", "openai"],
+  "telegram": {
+    "enabled": true,
+    "bot_token": "123:abc",
+    "chat_id": "123456"
+  },
+  "schedule": {
+    "mode": "interval",
+    "expression": "1h",
+    "label": "1시간마다"
+  }
+}
+```
