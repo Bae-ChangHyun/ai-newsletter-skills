@@ -16,7 +16,7 @@ from pathlib import Path
 
 DEFAULT_OWNER = "Bae-ChangHyun"
 DEFAULT_REPO = "ai-newsletter-skills"
-DEFAULT_REF = "main"
+DEFAULT_REF = "dev"
 
 
 def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
@@ -132,7 +132,13 @@ def write_bootstrap(home_root: Path, script_text: str, *, download_on_first_run:
     try:
         if exposed.exists() or exposed.is_symlink():
             exposed.unlink()
-        exposed.symlink_to(launcher)
+        exposed.write_text(
+            "#!/usr/bin/env bash\n"
+            "set -euo pipefail\n"
+            f'exec "{launcher}" "$@"\n',
+            encoding="utf-8",
+        )
+        exposed.chmod(exposed.stat().st_mode | stat.S_IXUSR)
         linked = True
     except OSError:
         linked = False
