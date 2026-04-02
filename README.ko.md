@@ -8,6 +8,7 @@
 - [Features](#features)
 - [Skill List](#skill-list)
 - [Quick Start](#quick-start)
+- [No-Clone Install](#no-clone-install)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Repository Layout](#repository-layout)
@@ -44,11 +45,17 @@ AI Newsletter Skills는 Claude Code와 Codex에서 같은 뉴스레터 워크플
 
 ## Quick Start
 
-사용할 플랫폼에 맞게 설치합니다:
+clone 없이 바로 설치할 수 있습니다:
 
 ```bash
-python3 scripts/install_codex.py
-python3 scripts/install_claude.py
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+```
+
+플랫폼 하나만 설치하려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
 ```
 
 설치 후에는 해당 앱 또는 CLI 세션을 다시 시작해야 새 스킬이 반영됩니다.
@@ -63,11 +70,34 @@ newsletter-start
 newsletter-stop
 ```
 
+## No-Clone Install
+
+이 저장소에는 독립 실행형 설치 스크립트인 [install.py](./install.py)가 들어 있습니다.
+
+동작 방식은 두 가지입니다:
+
+- Local mode
+  - repo를 checkout 한 상태에서 `python3 install.py` 실행
+- Bootstrap mode
+  - GitHub raw에서 바로 받아 `clone 없이` 설치
+
+Bootstrap 예시:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
+```
+
+로컬 checkout 없이 실행되면, 설치 스크립트가 GitHub tarball을 임시 디렉터리로 내려받아 기존 platform installer를 실행합니다.
+
 ## Installation
 
 ### Codex
 
 ```bash
+python3 install.py --target codex
+# 또는
 python3 scripts/install_codex.py
 ```
 
@@ -90,6 +120,8 @@ python3 scripts/install_codex.py
 ### Claude Code
 
 ```bash
+python3 install.py --target claude
+# 또는
 python3 scripts/install_claude.py
 ```
 
@@ -152,6 +184,7 @@ RSSHub 동작:
 이 저장소를 수정한 뒤에는 설치 스크립트를 다시 실행하면 됩니다:
 
 ```bash
+python3 install.py --target all
 python3 scripts/install_codex.py
 python3 scripts/install_claude.py
 ```

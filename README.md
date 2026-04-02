@@ -8,6 +8,7 @@
 - [Features](#features)
 - [Skill List](#skill-list)
 - [Quick Start](#quick-start)
+- [No-Clone Install](#no-clone-install)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Repository Layout](#repository-layout)
@@ -44,11 +45,17 @@ It keeps one shared Python runtime for collection, Telegram delivery, delivery t
 
 ## Quick Start
 
-Install for the platform you want to use:
+Install without cloning:
 
 ```bash
-python3 scripts/install_codex.py
-python3 scripts/install_claude.py
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+```
+
+Or install one platform only:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
 ```
 
 Then restart the relevant app or CLI session so the new skills are loaded.
@@ -63,11 +70,34 @@ newsletter-start
 newsletter-stop
 ```
 
+## No-Clone Install
+
+The repository ships a standalone bootstrap installer at [install.py](./install.py).
+
+It works in two modes:
+
+- Local mode
+  - run `python3 install.py` from a checked-out repo
+- Bootstrap mode
+  - pipe the script from GitHub raw without cloning the repo
+
+Bootstrap examples:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
+```
+
+When run without a local checkout, the bootstrap installer downloads the GitHub tarball into a temporary directory and runs the existing platform installers from there.
+
 ## Installation
 
 ### Codex
 
 ```bash
+python3 install.py --target codex
+# or
 python3 scripts/install_codex.py
 ```
 
@@ -90,6 +120,8 @@ Runtime notes:
 ### Claude Code
 
 ```bash
+python3 install.py --target claude
+# or
 python3 scripts/install_claude.py
 ```
 
@@ -152,6 +184,7 @@ Delivery behavior:
 Re-run the installers after changing this repository:
 
 ```bash
+python3 install.py --target all
 python3 scripts/install_codex.py
 python3 scripts/install_claude.py
 ```
