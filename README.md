@@ -1,19 +1,23 @@
-# AI Newsletter Skills
-
-[한국어](./README.ko.md)
+<h1 align="center">AI Newsletter Skills</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/branch-dev-0f172a?style=for-the-badge" alt="dev branch" />
-  <img src="https://img.shields.io/badge/runtime-shared-2563eb?style=for-the-badge" alt="shared runtime" />
-  <img src="https://img.shields.io/badge/workflow-shell--first-059669?style=for-the-badge" alt="shell first workflow" />
-  <img src="https://img.shields.io/badge/backends-claude%20%7C%20codex%20%7C%20copilot%20%7C%20openai-7c3aed?style=for-the-badge" alt="supported backends" />
+  Unified AI newsletter automation for Claude Code, Codex, GitHub Copilot, and OpenAI-compatible backends.
+</p>
+
+<p align="center">
+  <a href="./README.ko.md">한국어</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude%20Code-D97706?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code" />
+  <img src="https://img.shields.io/badge/Codex-111827?style=for-the-badge&logo=openai&logoColor=white" alt="Codex" />
+  <img src="https://img.shields.io/badge/GitHub%20Copilot-0F172A?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
+  <img src="https://img.shields.io/badge/OpenAI%20Compatible-2563EB?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI-compatible" />
 </p>
 
 ## About
 
-AI Newsletter Skills is a unified newsletter workflow for Claude Code, Codex, GitHub Copilot CLI, and OpenAI-compatible APIs.
-
-It installs one shared runtime under `~/.ai-newsletter`, keeps one shared state directory, and gives you one command set:
+AI Newsletter Skills is an open-source project that pulls AI news from multiple sources, removes obvious noise and duplicates, and delivers a curated digest through one unified workflow.
 
 - `newsletter-onboard`
 - `newsletter-status`
@@ -21,27 +25,32 @@ It installs one shared runtime under `~/.ai-newsletter`, keeps one shared state 
 - `newsletter-start`
 - `newsletter-stop`
 
-The setup flow asks once, validates the important inputs, installs the selected backend integration, and lets that backend generate `config.json`.
+It is designed for people who want one practical system for staying on top of fast-moving AI updates without manually checking Hacker News, Reddit, Threads, GeekNews, and similar feeds all day.
 
 ## Features
 
-- One onboarding flow for every supported backend
-- One shared runtime and one shared state directory
-- Telegram delivery with verification during onboarding
-- RSSHub-based Threads support with connectivity checks
-- Language-aware onboarding, status output, and newsletter generation
-- Recurring delivery through a single cron-based shell workflow
+- One setup flow for Claude Code, Codex, GitHub Copilot, and OpenAI-compatible backends
+- One shell command set for onboarding, status checks, manual runs, and scheduling
+- Telegram verification during onboarding and RSSHub checks for Threads collection
+- Re-runnable onboarding with existing config prefilled as defaults
+- Local scheduled delivery with a single recurring cron workflow
 
 ## Quick Start
 
-The unified flow currently lives on the `dev` branch.
+The latest unified flow currently lives on the `dev` branch.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
 newsletter-onboard
 ```
 
-After onboarding:
+If `newsletter-onboard` is not on your `PATH`, run:
+
+```bash
+~/.ai-newsletter/bin/newsletter-onboard
+```
+
+After onboarding, use:
 
 ```bash
 newsletter-status

@@ -124,9 +124,27 @@ def write_bootstrap(home_root: Path, script_text: str, *, download_on_first_run:
     )
     launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR)
 
+    local_bin = Path.home() / ".local" / "bin"
+    path_entries = os.environ.get("PATH", "").split(os.pathsep)
+    exposed = local_bin / "newsletter-onboard"
+    linked = False
+    local_bin.mkdir(parents=True, exist_ok=True)
+    try:
+        if exposed.exists() or exposed.is_symlink():
+            exposed.unlink()
+        exposed.symlink_to(launcher)
+        linked = True
+    except OSError:
+        linked = False
+
     print(f"Installed bootstrap onboarding launcher: {launcher}")
     print("Run this next:")
-    print(f"  {launcher}")
+    if linked and str(local_bin) in path_entries:
+        print("  newsletter-onboard")
+    elif linked:
+        print(f"  {exposed}")
+    else:
+        print(f"  {launcher}")
     if download_on_first_run:
         print("The first onboarding run will download and install the shared runtime automatically.")
     else:

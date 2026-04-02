@@ -1,19 +1,25 @@
-# AI Newsletter Skills
-
-[English](./README.md)
+<h1 align="center">AI Newsletter Skills</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/branch-dev-0f172a?style=for-the-badge" alt="dev branch" />
-  <img src="https://img.shields.io/badge/runtime-shared-2563eb?style=for-the-badge" alt="shared runtime" />
-  <img src="https://img.shields.io/badge/workflow-shell--first-059669?style=for-the-badge" alt="shell first workflow" />
-  <img src="https://img.shields.io/badge/backends-claude%20%7C%20codex%20%7C%20copilot%20%7C%20openai-7c3aed?style=for-the-badge" alt="supported backends" />
+  Claude Code, Codex, GitHub Copilot, OpenAI-compatible backend를 하나로 묶는 통합 AI 뉴스레터 자동화 프로젝트
+</p>
+
+<p align="center">
+  <a href="./README.md">English</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude%20Code-D97706?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code" />
+  <img src="https://img.shields.io/badge/Codex-111827?style=for-the-badge&logo=openai&logoColor=white" alt="Codex" />
+  <img src="https://img.shields.io/badge/GitHub%20Copilot-0F172A?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
+  <img src="https://img.shields.io/badge/OpenAI%20Compatible-2563EB?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI-compatible" />
 </p>
 
 ## About
 
-AI Newsletter Skills는 Claude Code, Codex, GitHub Copilot CLI, OpenAI-compatible API를 하나의 뉴스레터 워크플로로 묶는 통합 셸 도구입니다.
+AI Newsletter Skills는 여러 소스에서 AI 관련 뉴스를 가져오고, 눈에 띄는 중복과 노이즈를 걸러낸 뒤, 하나의 흐름으로 정리해서 전달하는 오픈소스 프로젝트입니다.
 
-공통 runtime은 `~/.ai-newsletter` 아래에 설치되고, 상태 파일도 한 곳에서 공유됩니다. 실제 사용 명령은 아래 5개로 통일됩니다.
+Hacker News, Reddit, Threads, GeekNews 같은 소스를 하루 종일 직접 확인하지 않고도, 바쁜 사람이 빠르게 훑어볼 수 있는 AI 뉴스레터 시스템을 목표로 합니다.
 
 - `newsletter-onboard`
 - `newsletter-status`
@@ -21,24 +27,28 @@ AI Newsletter Skills는 Claude Code, Codex, GitHub Copilot CLI, OpenAI-compatibl
 - `newsletter-start`
 - `newsletter-stop`
 
-설정은 한 번만 진행하면 되고, 입력값을 검증한 뒤 선택한 backend 연동을 설치하고, 마지막에는 그 backend가 `config.json`을 생성합니다.
-
 ## Features
 
-- 모든 backend에서 하나의 onboarding 흐름 사용
-- 공통 runtime과 공통 상태 디렉터리 공유
+- Claude Code, Codex, GitHub Copilot, OpenAI-compatible backend를 하나의 설정 흐름으로 지원
+- 온보딩, 상태 확인, 수동 실행, 자동 실행을 하나의 셸 명령 체계로 통일
 - 온보딩 중 Telegram 검증 지원
-- RSSHub 기반 Threads 지원과 연결 확인
-- language에 맞춘 onboarding, status, 뉴스레터 생성
-- cron 기반의 단일 셸 워크플로
+- RSSHub 기반 Threads 연결 확인 지원
+- 기존 설정값을 다시 불러오는 재실행 가능한 온보딩
+- cron 기반의 로컬 자동 뉴스레터 실행
 
 ## Quick Start
 
-현재 통합 흐름은 `dev` 브랜치에 있습니다.
+최신 통합 흐름은 현재 `dev` 브랜치에 있습니다.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
 newsletter-onboard
+```
+
+만약 `newsletter-onboard`가 PATH에 안 잡히면 아래 경로로 실행하면 됩니다.
+
+```bash
+~/.ai-newsletter/bin/newsletter-onboard
 ```
 
 온보딩 후에는:
