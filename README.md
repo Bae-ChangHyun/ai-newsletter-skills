@@ -6,76 +6,61 @@
 
 - [Intro](#intro)
 - [Features](#features)
-- [Skill List](#skill-list)
 - [Quick Start](#quick-start)
 - [No-Clone Install](#no-clone-install)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Backends](#backends)
 - [Repository Layout](#repository-layout)
 - [Reinstall](#reinstall)
 
 ## Intro
 
-AI Newsletter Skills is a single-repo project for running the same newsletter workflow in both Claude Code and Codex.
+AI Newsletter Skills is a single-repo project for running one newsletter workflow across Claude Code, Codex, GitHub Copilot CLI, and OpenAI-compatible APIs.
 
-It keeps one shared Python runtime for collection, Telegram delivery, delivery tracking, and cron management, while generating platform-specific skill files for each target.
+It installs one shared runtime under `~/.ai-newsletter`, keeps one shared state directory, and exposes one unified command set:
+
+- `newsletter-onboard`
+- `newsletter-now`
+- `newsletter-start`
+- `newsletter-stop`
+- `newsletter-status`
 
 ## Features
 
-- Same end-user skill names in Claude Code and Codex
+- One onboarding flow for every backend
 - Shared runtime with no duplicated collector logic
+- Shared delivery state across all backends
 - Telegram delivery support
 - RSSHub support for Threads collection
 - Four-stage delivery tracking: `ingested`, `curated`, `send_failed`, `sent`
-- Deterministic prefiltering before the Claude/Codex editorial pass
+- Deterministic prefiltering before the editorial pass
 - Cron-based scheduled delivery
-- Bypass-style non-interactive runners for both platforms
-- Configurable AI keyword filters and user-provided Threads handles
-
-## Skill List
-
-- `newsletter-onboard`
-  - Configure platforms, Telegram, RSSHub, and schedule
-- `newsletter-now`
-  - Collect and send the newsletter immediately
-- `newsletter-start`
-  - Register the recurring cron job
-- `newsletter-stop`
-  - Remove the registered cron job
-- `newsletter-status`
-  - Show saved settings plus current cron registration state
+- Unified command routing by configured backend
+- Optional Codex and Claude Code app integration
 
 ## Quick Start
 
-Install without cloning:
+Current unified onboarding work is on the `dev` branch. Install the onboarding bootstrap without cloning:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
 ```
 
-Or install one platform only:
+Then run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
+newsletter-onboard
 ```
 
-Then restart the relevant app or CLI session so the new skills are loaded.
+The first onboarding run downloads and installs the shared runtime automatically. During onboarding, the selected backend integration is installed as part of the setup. After onboarding, use:
 
-Typical workflow:
-
-```text
-Codex: $newsletter onboard
-Codex: $newsletter status
-Codex: $newsletter now
-Codex: $newsletter start
-Codex: $newsletter stop
-
-Claude Code: /newsletter onboard
-Claude Code: /newsletter status
-Claude Code: /newsletter now
-Claude Code: /newsletter start
-Claude Code: /newsletter stop
+```bash
+newsletter-onboard
+newsletter-status
+newsletter-now
+newsletter-start
+newsletter-stop
 ```
 
 ## No-Clone Install
@@ -92,16 +77,64 @@ It works in two modes:
 Bootstrap examples:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 -
 curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
 curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
 ```
 
-When run without a local checkout, the bootstrap installer downloads the GitHub tarball into a temporary directory and runs the existing platform installers from there.
+For the current unified onboarding flow on the `dev` branch:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
+```
+
+When run without a local checkout, the bootstrap installer downloads the GitHub tarball into a temporary directory and runs the existing installers from there.
 
 ## Installation
 
-### Codex
+### Bootstrap Onboarding
+
+```bash
+python3 install.py
+```
+
+Installed paths:
+
+- bootstrap launcher: `~/.ai-newsletter/bin/newsletter-onboard`
+- bootstrap script: `~/.ai-newsletter/bootstrap_onboard.py`
+
+Runtime notes:
+
+- This installs only the onboarding launcher first
+- The first `newsletter-onboard` run downloads and installs the shared runtime automatically
+- The selected backend integration is installed during onboarding
+- After that, `newsletter-now`, `newsletter-start`, `newsletter-stop`, and `newsletter-status` become available in `~/.ai-newsletter/bin` and `~/.local/bin`
+
+### Common Runtime
+
+```bash
+python3 install.py --target common
+# or
+python3 scripts/install_common.py
+```
+
+Installed paths:
+
+- runtime: `~/.ai-newsletter/runtime/`
+- commands:
+  - `~/.ai-newsletter/bin/newsletter-onboard`
+  - `~/.ai-newsletter/bin/newsletter-now`
+  - `~/.ai-newsletter/bin/newsletter-start`
+  - `~/.ai-newsletter/bin/newsletter-stop`
+  - `~/.ai-newsletter/bin/newsletter-status`
+
+Runtime notes:
+
+- Shared `.data` state is preserved across reinstall
+- This runtime is enough for `github_copilot` and `openai`
+- It is also the shared runtime used by `codex` and `claude`
+
+### Codex Integration
 
 ```bash
 python3 install.py --target codex
@@ -111,9 +144,9 @@ python3 scripts/install_codex.py
 
 Installed paths:
 
-- runtime: `~/.codex/skills/newsletter-runtime/`
-- skills:
-  - `~/.codex/skills/newsletter-onboard/`
+- unified runtime: `~/.ai-newsletter/runtime/`
+- shell commands: `~/.ai-newsletter/bin/newsletter-*`
+- Codex skills:
   - `~/.codex/skills/newsletter-now/`
   - `~/.codex/skills/newsletter-start/`
   - `~/.codex/skills/newsletter-stop/`
@@ -121,11 +154,12 @@ Installed paths:
 
 Runtime notes:
 
+- Uses the installed `codex` CLI
 - Uses `codex exec --dangerously-bypass-approvals-and-sandbox`
 - Best results after restarting Codex
 - Reinstall preserves existing `.data` state such as config, delivery state, and logs
 
-### Claude Code
+### Claude Code Integration
 
 ```bash
 python3 install.py --target claude
@@ -135,9 +169,9 @@ python3 scripts/install_claude.py
 
 Installed paths:
 
-- runtime: `~/.claude/skills/newsletter-runtime/`
-- skills:
-  - `~/.claude/skills/newsletter-onboard/`
+- unified runtime: `~/.ai-newsletter/runtime/`
+- shell commands: `~/.ai-newsletter/bin/newsletter-*`
+- Claude skills:
   - `~/.claude/skills/newsletter-now/`
   - `~/.claude/skills/newsletter-start/`
   - `~/.claude/skills/newsletter-stop/`
@@ -145,59 +179,96 @@ Installed paths:
 
 Runtime notes:
 
+- Uses the installed `claude` CLI
 - Uses `claude -p ... --dangerously-skip-permissions`
 - Best results after restarting Claude Code
 - Reinstall preserves existing `.data` state such as config, delivery state, and logs
 
 ## Usage
 
-`newsletter-onboard` configures:
+Use the unified commands from your shell:
 
-- preferred output language first
-- source platforms
-- optional AI keyword filters
-- Telegram bot token and chat id
-- RSSHub URL for Threads
-- Threads handles without `@`
-- recurring schedule
+```bash
+newsletter-onboard
+newsletter-status
+newsletter-now
+newsletter-start
+newsletter-stop
+```
+
+`newsletter-onboard`:
+
+- shows a welcome banner and step-by-step wizard
+- asks for language first
+- asks which backend should generate the runtime config
+- asks about source platforms, Telegram, RSSHub, Threads handles, and schedule
+- then sends those collected answers to the selected backend so that backend generates `config.json`
 
 RSSHub behavior:
 
 - default URL: `http://localhost:1200`
 - health-checks `/healthz` first
 - falls back to `/`
-- disables `threads` automatically if RSSHub is not reachable
+- if RSSHub is not reachable, onboarding asks whether to retry or disable Threads
 
 Scheduling behavior:
 
-- `newsletter-start` installs one recurring cron entry from the cron string you entered
+- `newsletter-start` installs one recurring cron entry for the selected backend
 - `newsletter-status` shows both saved config and the current cron line
 
 Delivery behavior:
 
 - items move through `ingested -> curated -> send_failed -> sent`
 - `send_failed` items are retried before brand-new candidates
-- exact URL/title dedupe and cheap noise filtering run before the Claude/Codex editorial pass
+- exact URL/title dedupe and cheap noise filtering run before the editorial pass
 - onboarding, status output, and translated newsletter titles follow the configured language
 - items are only marked delivered after successful Telegram send or successful terminal output
+
+## Backends
+
+- `claude`
+  - Uses the installed `claude` CLI to generate config and run the editorial pass
+- `codex`
+  - Uses the installed `codex` CLI to generate config and run the editorial pass
+- `github_copilot`
+  - Runs `copilot login` inside onboarding when you choose it
+  - Uses the official device-login flow and then a selected Copilot model
+- `openai`
+  - Prompts for `base_url`, `model`, and `api_key_env`
+  - Calls a generic OpenAI-compatible `/chat/completions` endpoint
+
+## Current Dev Flow
+
+The unified shell-first workflow currently lives on `dev`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
+newsletter-onboard
+newsletter-status
+newsletter-now
+newsletter-start
+newsletter-stop
+```
 
 ## Repository Layout
 
 - `shared/newsletter/`
   - shared Python runtime, collectors, prompts, delivery-state logic
+- `targets/common/templates/`
+  - unified onboarding, dispatch, status, and standalone backend runners
 - `targets/codex/templates/`
   - Codex skill templates and Codex runner template
 - `targets/claude/templates/`
   - Claude skill templates, Claude runner template, Claude subagent template
 - `scripts/`
-  - installers for each platform
+  - installers for the shared runtime and optional app integrations
 
 ## Reinstall
 
 Re-run the installers after changing this repository:
 
 ```bash
-python3 install.py --target all
+python3 install.py --target common
 python3 scripts/install_codex.py
 python3 scripts/install_claude.py
 ```
