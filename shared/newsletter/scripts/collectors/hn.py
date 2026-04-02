@@ -42,6 +42,7 @@ def fetch_items():
                 "source": "HN",
                 "time": created,
                 "score": score,
+                "comments": item.get("descendants", 0),
             })
     seen = set()
     deduped = []

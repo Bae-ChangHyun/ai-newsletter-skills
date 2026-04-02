@@ -26,7 +26,8 @@ AI Newsletter Skills는 Claude Code와 Codex에서 같은 뉴스레터 워크플
 - 수집 로직 중복 없는 공용 runtime
 - Telegram 전송 지원
 - Threads 수집용 RSSHub 지원
-- `seen`과 `sent` 상태 분리 관리
+- `ingested`, `curated`, `send_failed`, `sent` 4단계 상태 관리
+- Claude/Codex 큐레이션 전에 deterministic 1차 필터 적용
 - cron 기반 자동 실행
 - 양쪽 모두 비대화형 runner 지원
 - AI 키워드 필터와 Threads 계정명을 사용자 입력으로 설정
@@ -167,7 +168,9 @@ RSSHub 동작:
 
 전송 동작:
 
-- 먼저 pending 후보를 수집
+- 항목은 `ingested -> curated -> send_failed -> sent` 흐름으로 이동
+- `send_failed` 항목은 새 후보보다 먼저 재시도
+- exact URL/title dedupe와 저비용 노이즈 필터를 먼저 적용
 - Telegram 전송 또는 터미널 출력이 성공한 뒤에만 delivered 처리
 
 ## Repository Layout

@@ -50,6 +50,7 @@ def fetch_items(subreddits=None):
                     "source": f"r/{sub}",
                     "time": created,
                     "score": score,
+                    "comments": d.get("num_comments", 0),
                 })
     items.sort(key=lambda x: x.get("score", 0), reverse=True)
     return items

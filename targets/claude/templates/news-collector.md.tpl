@@ -32,9 +32,26 @@ python3 __RUNTIME_ROOT__/scripts/run_all.py 2>/dev/null
 | 📊 업계 동향 | 투자, 인수, 전략, 인사, 기업 뉴스 |
 | 💻 개발 실무 | 기술 블로그, 아키텍처, 마이그레이션, 경험담 |
 
+수집 결과에서 코드가 이미 exact URL/title dedupe와 1차 필터를 적용했다. 여기서는:
+- `state`가 `curated` 또는 `send_failed`인 항목을 우선 반영한다.
+- 의미상 같은 이야기의 near-duplicate만 정리한다.
+- 최종 포함할 항목만 고른다.
+
 ## 3. 전달
 
-Telegram 전송이 성공한 뒤에만, 실제 포함한 항목 URL들을 플랫폼별 JSON으로 묶어 아래 스크립트에 전달해 delivered 처리한다:
+실제 포함한 항목 URL들을 플랫폼별 JSON으로 묶어 먼저 curated 처리한다:
+
+```bash
+cat <<'JSONEOF' | python3 __RUNTIME_ROOT__/scripts/mark_curated.py
+{
+  "hn": [{"url": "https://example.com/a"}]
+}
+JSONEOF
+```
+
+Telegram 전송이 실패하면 같은 payload를 `mark_send_failed.py`에 전달한다.
+
+Telegram 전송이 성공한 뒤에만, 같은 payload를 아래 스크립트에 전달해 delivered 처리한다:
 
 ```bash
 cat <<'JSONEOF' | python3 __RUNTIME_ROOT__/scripts/mark_delivered.py
@@ -48,5 +65,4 @@ JSONEOF
 
 ## 4. 요약 반환
 
-한 줄 요약만 반환한다.
-
+한 줄 요약만 반환한다. 실패 시에도 한 줄로 반환한다.

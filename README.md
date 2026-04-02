@@ -26,7 +26,8 @@ It keeps one shared Python runtime for collection, Telegram delivery, delivery t
 - Shared runtime with no duplicated collector logic
 - Telegram delivery support
 - RSSHub support for Threads collection
-- Separate `seen` and `sent` state tracking
+- Four-stage delivery tracking: `ingested`, `curated`, `send_failed`, `sent`
+- Deterministic prefiltering before the Claude/Codex editorial pass
 - Cron-based scheduled delivery
 - Bypass-style non-interactive runners for both platforms
 - Configurable AI keyword filters and user-provided Threads handles
@@ -167,7 +168,9 @@ Scheduling behavior:
 
 Delivery behavior:
 
-- items are collected into pending candidates
+- items move through `ingested -> curated -> send_failed -> sent`
+- `send_failed` items are retried before brand-new candidates
+- exact URL/title dedupe and cheap noise filtering run before the Claude/Codex editorial pass
 - items are only marked delivered after successful Telegram send or successful terminal output
 
 ## Repository Layout
