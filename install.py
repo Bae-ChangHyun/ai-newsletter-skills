@@ -84,8 +84,12 @@ def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
             temp_dir_ctx, repo_root = download_repo()
             try:
                 subprocess.run([sys.executable, str(repo_root / "scripts" / "install_common.py")], check=True, env=env)
-                onboarding = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.py"
-                subprocess.run([sys.executable, str(onboarding)], check=True, env=env)
+                onboarding_js = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.mjs"
+                onboarding_py = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.py"
+                if onboarding_js.exists():
+                    subprocess.run(["node", str(onboarding_js)], check=True, env=env)
+                else:
+                    subprocess.run([sys.executable, str(onboarding_py)], check=True, env=env)
             finally:
                 temp_dir_ctx.cleanup()
 
@@ -115,8 +119,12 @@ def local_bootstrap_script(home_root: Path, repo_root: Path) -> str:
             env = os.environ.copy()
             env["AI_NEWSLETTER_HOME"] = str(HOME_ROOT)
             subprocess.run([sys.executable, str(REPO_ROOT / "scripts" / "install_common.py")], check=True, env=env)
-            onboarding = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.py"
-            subprocess.run([sys.executable, str(onboarding)], check=True, env=env)
+            onboarding_js = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.mjs"
+            onboarding_py = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.py"
+            if onboarding_js.exists():
+                subprocess.run(["node", str(onboarding_js)], check=True, env=env)
+            else:
+                subprocess.run([sys.executable, str(onboarding_py)], check=True, env=env)
 
 
         if __name__ == "__main__":
