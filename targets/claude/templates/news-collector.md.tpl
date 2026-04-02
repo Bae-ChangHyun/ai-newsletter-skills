@@ -17,6 +17,7 @@ allowedTools:
 ## 1. 수집
 
 ```bash
+cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
 python3 __RUNTIME_ROOT__/scripts/run_all.py 2>/dev/null
 ```
 
@@ -36,6 +37,7 @@ python3 __RUNTIME_ROOT__/scripts/run_all.py 2>/dev/null
 - `state`가 `curated` 또는 `send_failed`인 항목을 우선 반영한다.
 - 의미상 같은 이야기의 near-duplicate만 정리한다.
 - 최종 포함할 항목만 고른다.
+- 전체 응답, 카테고리명, 헤더, 제목 번역은 `config.language`를 따른다.
 
 ## 3. 전달
 
@@ -65,4 +67,4 @@ JSONEOF
 
 ## 4. 요약 반환
 
-한 줄 요약만 반환한다. 실패 시에도 한 줄로 반환한다.
+한 줄 요약만 반환한다. 실패 시에도 한 줄로 반환한다. 요약 언어도 `config.language`를 따른다.

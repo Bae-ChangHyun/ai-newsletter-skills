@@ -8,6 +8,7 @@ description: Remove the Codex-managed AI newsletter cron job. Use when the user 
 ## Commands
 
 ```bash
+cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
 python3 __RUNTIME_ROOT__/scripts/manage_cron.py stop
 python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 ```
@@ -16,5 +17,4 @@ python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 
 1. Run the stop command.
 2. Run the status command.
-3. Report whether the Codex-managed cron entry was removed or was already absent.
-
+3. Report whether the Codex-managed cron entry was removed or was already absent, using `config.language` if present.

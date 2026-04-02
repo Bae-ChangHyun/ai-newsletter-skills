@@ -16,7 +16,12 @@ allowedTools:
 
 ## 절차
 
-1. AskUserQuestion 또는 대화형 질문으로 아래를 수집한다.
+1. AskUserQuestion 또는 대화형 질문으로 `language`를 가장 먼저 수집한다.
+- `ko`, `en` 같은 짧은 코드로 저장
+- 사용자가 모르겠다면 `ko`를 기본값으로 사용
+- 이후 온보딩 전체 설명과 질문은 해당 언어로 진행한다.
+
+2. AskUserQuestion 또는 대화형 질문으로 아래를 수집한다.
 - 플랫폼
 - Reddit 서브레딧
 - 추가 AI 키워드
@@ -32,7 +37,7 @@ allowedTools:
   - interval 예: `30m`, `1h`, `2h`, `1d`
   - 또는 5필드 cron 표현식 직접 입력
 
-2. Threads를 켠 경우 RSSHub 연결을 먼저 검증한다.
+3. Threads를 켠 경우 RSSHub 연결을 먼저 검증한다.
 
 ```bash
 python3 - <<'PY' "RSSHUB_URL"
@@ -54,7 +59,7 @@ PY
 - RSSHub를 먼저 실행하라고 안내
 - `threads`는 config에서 제외
 
-3. 설정 파일을 직접 저장한다.
+4. 설정 파일을 직접 저장한다.
 
 ```bash
 mkdir -p __RUNTIME_ROOT__/.data
@@ -68,6 +73,7 @@ cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
 
 ```json
 {
+  "language": "ko",
   "platforms": ["hn", "reddit", "tldr"],
   "subreddits": ["OpenAI", "LocalLLaMA"],
   "ai_keywords": ["agent", "open source"],
@@ -81,11 +87,11 @@ cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
   "schedule": {
     "mode": "interval",
     "expression": "1h",
-    "label": "1시간마다"
+    "label": "every hour"
   }
 }
 ```
 
 사용하지 않는 optional key는 생략한다.
 
-4. 저장 후 파일을 다시 읽고 요약한다.
+5. 저장 후 파일을 다시 읽고, 설정한 `language`로 요약한다.

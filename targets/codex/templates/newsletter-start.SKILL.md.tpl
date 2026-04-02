@@ -18,4 +18,4 @@ python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 1. Confirm the config file exists.
 2. Run the start command.
 3. Run the status command.
-4. Report the installed recurring schedule from the saved cron string.
+4. Report the installed recurring schedule in `config.language` if present, otherwise use the user's current language.

@@ -10,6 +10,9 @@ allowedTools:
 ## 절차
 
 ```bash
+cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
 NEWSLETTER_RUNNER=__RUNTIME_ROOT__/scripts/run_with_claude.sh NEWSLETTER_MARKER='# claude-newsletter-runtime' python3 __RUNTIME_ROOT__/scripts/manage_cron.py stop
 NEWSLETTER_RUNNER=__RUNTIME_ROOT__/scripts/run_with_claude.sh NEWSLETTER_MARKER='# claude-newsletter-runtime' python3 __RUNTIME_ROOT__/scripts/manage_cron.py status
 ```
+
+응답은 가능하면 `config.language`를 따른다.

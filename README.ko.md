@@ -65,11 +65,17 @@ curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/
 일반적인 사용 순서:
 
 ```text
-newsletter-onboard
-newsletter-status
-newsletter-now
-newsletter-start
-newsletter-stop
+Codex: $newsletter onboard
+Codex: $newsletter status
+Codex: $newsletter now
+Codex: $newsletter start
+Codex: $newsletter stop
+
+Claude Code: /newsletter onboard
+Claude Code: /newsletter status
+Claude Code: /newsletter now
+Claude Code: /newsletter start
+Claude Code: /newsletter stop
 ```
 
 ## No-Clone Install
@@ -147,6 +153,7 @@ python3 scripts/install_claude.py
 
 `newsletter-onboard`에서 설정하는 항목:
 
+- 우선 출력 언어
 - 수집 플랫폼
 - 선택적 AI 키워드 필터
 - Telegram bot token / chat id
@@ -171,6 +178,7 @@ RSSHub 동작:
 - 항목은 `ingested -> curated -> send_failed -> sent` 흐름으로 이동
 - `send_failed` 항목은 새 후보보다 먼저 재시도
 - exact URL/title dedupe와 저비용 노이즈 필터를 먼저 적용
+- 온보딩, status 응답, 뉴스레터 제목 번역은 설정한 언어를 따름
 - Telegram 전송 또는 터미널 출력이 성공한 뒤에만 delivered 처리
 
 ## Repository Layout

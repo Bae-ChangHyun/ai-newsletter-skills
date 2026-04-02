@@ -9,7 +9,10 @@ Handle onboarding directly in the conversation. Do not call a separate onboardin
 
 ## Required behavior
 
-1. Ask concise questions to collect:
+1. Ask for `language` first and use that language for the entire onboarding conversation.
+- save it as a short code such as `ko` or `en`
+- if the user is unsure, default to `ko`
+2. Ask concise questions to collect:
 - platforms
 - optional Reddit subreddits
 - optional extra AI keywords
@@ -23,7 +26,7 @@ Handle onboarding directly in the conversation. Do not call a separate onboardin
 - schedule
   - interval examples: `30m`, `1h`, `2h`, `1d`
   - or a 5-field cron string
-2. If Threads is enabled, verify RSSHub connectivity before saving:
+3. If Threads is enabled, verify RSSHub connectivity before saving:
 - try `__RUNTIME_ROOT__/scripts` adjacent runtime config with:
 ```bash
 python3 - <<'PY'
@@ -41,14 +44,14 @@ raise SystemExit(1)
 PY "RSSHUB_URL"
 ```
 - if the check fails, explain that RSSHub must be running first and disable `threads`
-3. Write `__RUNTIME_ROOT__/.data/config.json` directly.
-4. After saving, read the file back:
+4. Write `__RUNTIME_ROOT__/.data/config.json` directly.
+5. After saving, read the file back:
 
 ```bash
 mkdir -p __RUNTIME_ROOT__/.data
 cat __RUNTIME_ROOT__/.data/config.json
 ```
-5. Summarize:
+6. Summarize in the configured language:
 - selected platforms
 - AI keywords if configured
 - Telegram enabled or disabled
@@ -61,6 +64,7 @@ Write JSON in this shape, omitting unused optional keys:
 
 ```json
 {
+  "language": "ko",
   "platforms": ["hn", "reddit", "tldr"],
   "subreddits": ["OpenAI", "LocalLLaMA"],
   "ai_keywords": ["agent", "open source"],
@@ -74,7 +78,7 @@ Write JSON in this shape, omitting unused optional keys:
   "schedule": {
     "mode": "interval",
     "expression": "1h",
-    "label": "1시간마다"
+    "label": "every hour"
   }
 }
 ```

@@ -65,11 +65,17 @@ Then restart the relevant app or CLI session so the new skills are loaded.
 Typical workflow:
 
 ```text
-newsletter-onboard
-newsletter-status
-newsletter-now
-newsletter-start
-newsletter-stop
+Codex: $newsletter onboard
+Codex: $newsletter status
+Codex: $newsletter now
+Codex: $newsletter start
+Codex: $newsletter stop
+
+Claude Code: /newsletter onboard
+Claude Code: /newsletter status
+Claude Code: /newsletter now
+Claude Code: /newsletter start
+Claude Code: /newsletter stop
 ```
 
 ## No-Clone Install
@@ -147,6 +153,7 @@ Runtime notes:
 
 `newsletter-onboard` configures:
 
+- preferred output language first
 - source platforms
 - optional AI keyword filters
 - Telegram bot token and chat id
@@ -171,6 +178,7 @@ Delivery behavior:
 - items move through `ingested -> curated -> send_failed -> sent`
 - `send_failed` items are retried before brand-new candidates
 - exact URL/title dedupe and cheap noise filtering run before the Claude/Codex editorial pass
+- onboarding, status output, and translated newsletter titles follow the configured language
 - items are only marked delivered after successful Telegram send or successful terminal output
 
 ## Repository Layout
