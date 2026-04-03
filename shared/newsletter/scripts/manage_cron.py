@@ -21,9 +21,16 @@ INTERVAL_RE = re.compile(r"^\s*(\d+)\s*([mhd])\s*$")
 LEGACY_PATTERNS = (
     "run_with_codex.sh",
     "run_with_claude.sh",
+    "run_with_openai.py",
+    "run_with_copilot.py",
     "newsletter_now.py",
     "ai-news-newsletter",
     "codex-ai-newsletter",
+    "claude-newsletter-runtime",
+    "codex-newsletter-runtime",
+    "openai-newsletter-runtime",
+    "github-copilot-newsletter-runtime",
+    "newsletter-runtime",
 )
 
 

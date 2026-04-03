@@ -15,7 +15,6 @@ import {
 } from "@clack/prompts";
 
 const HOME_ROOT = "__HOME_ROOT__";
-const REPO_ROOT = "__REPO_ROOT__";
 const RUNTIME_ROOT = "__RUNTIME_ROOT__";
 const CONFIG_FILE = path.join(RUNTIME_ROOT, ".data", "config.json");
 const PROMPT_FILE = path.join(RUNTIME_ROOT, "prompts", "generate_config.md");
@@ -197,36 +196,22 @@ async function telegramApi(token, method, payload) {
   return data.result;
 }
 
-async function verifyTelegram(botToken, chatId, language) {
+async function verifyTelegram(botToken, chatId) {
   await telegramApi(botToken, "getMe", {});
-  await note(
-    language === "ko" ? "Telegram bot token OK" : "Telegram bot token OK",
-    language === "ko" ? "텔레그램" : "Telegram",
-  );
+  await note("Telegram bot token OK", "Telegram");
   const code = randomCode();
-  const message =
-    language === "ko"
-      ? `뉴스레터 설정 확인 코드: ${code}`
-      : `Newsletter setup verification code: ${code}`;
+  const message = `Newsletter setup verification code: ${code}`;
   await telegramApi(botToken, "sendMessage", { chat_id: chatId, text: message });
   const entered = await askRequiredText(
-    language === "ko"
-      ? "텔레그램으로 받은 인증 코드를 입력하세요"
-      : "Enter the verification code you received on Telegram",
+    "Enter the verification code you received on Telegram",
     "",
   );
   if (entered === BACK) return BACK;
   if (String(entered).trim() !== code) {
-    await note(
-      language === "ko" ? "인증 코드가 일치하지 않습니다. 다시 시도하세요." : "Verification code did not match. Try again.",
-      language === "ko" ? "텔레그램 검증 실패" : "Telegram verification failed",
-    );
+    await note("Verification code did not match. Try again.", "Telegram verification failed");
     return false;
   }
-  await note(
-    language === "ko" ? "Telegram verification OK" : "Telegram verification OK",
-    language === "ko" ? "텔레그램" : "Telegram",
-  );
+  await note("Telegram verification OK", "Telegram");
   return true;
 }
 
@@ -387,7 +372,7 @@ async function generateConfig(state) {
 function installBackendRuntime(backend) {
   const env = { ...process.env, AI_NEWSLETTER_HOME: HOME_ROOT };
   if (backend === "claude") {
-    const result = spawnSync("python3", [path.join(REPO_ROOT, "scripts", "install_claude.py")], {
+    const result = spawnSync("python3", [path.join(RUNTIME_ROOT, "scripts", "install_claude_backend.py")], {
       env,
       encoding: "utf-8",
     });
@@ -397,7 +382,7 @@ function installBackendRuntime(backend) {
     return;
   }
   if (backend === "codex") {
-    const result = spawnSync("python3", [path.join(REPO_ROOT, "scripts", "install_codex.py")], {
+    const result = spawnSync("python3", [path.join(RUNTIME_ROOT, "scripts", "install_codex_backend.py")], {
       env,
       encoding: "utf-8",
     });
@@ -405,6 +390,14 @@ function installBackendRuntime(backend) {
       throw new Error((result.stderr || result.stdout || "Failed to install Codex runtime").trim());
     }
   }
+}
+
+function clearExistingCron() {
+  const result = spawnSync("python3", [path.join(RUNTIME_ROOT, "scripts", "manage_cron.py"), "stop"], {
+    env: { ...process.env, AI_NEWSLETTER_HOME: HOME_ROOT },
+    encoding: "utf-8",
+  });
+  return result.status === 0;
 }
 
 async function askSelect(message, options, initialValue, includeBack = true) {
@@ -745,8 +738,8 @@ async function runWizard() {
 
     if (step === "ai_keywords") {
       await note(
-        `Built-in AI keywords already included:\n${DEFAULT_AI_KEYWORDS.join(", ")}`,
-        "Default AI keywords",
+        `Current AI keywords:\n${uniqueList([...DEFAULT_AI_KEYWORDS, ...state.aiKeywords]).join(", ")}`,
+        "AI keywords",
       );
       const value = await askText(
         "Extra AI keywords to emphasize in curation (comma-separated, optional)",
@@ -801,7 +794,7 @@ async function runWizard() {
         continue;
       }
       state.telegram.chat_id = value;
-      const verified = await verifyTelegram(state.telegram.bot_token, state.telegram.chat_id, state.language);
+      const verified = await verifyTelegram(state.telegram.bot_token, state.telegram.chat_id);
       if (verified === BACK) {
         index = previousStep(steps, index, state);
         continue;
@@ -900,11 +893,19 @@ async function runWizard() {
 
     if (step === "generate") {
       await note(`Generating config with backend: ${state.backend}`, "Config Generation");
+      const previousBackend = existingConfig.backend?.type || null;
       const config = await generateConfig(state);
       fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
       fs.writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
       if (state.backend === "claude" || state.backend === "codex") {
         installBackendRuntime(state.backend);
+      }
+      if (previousBackend && previousBackend !== state.backend) {
+        clearExistingCron();
+        await note(
+          "An existing newsletter cron entry was removed because the backend changed.\nRun `newsletter-start` again to register the new backend.",
+          "Cron reset",
+        );
       }
       await note(
         [

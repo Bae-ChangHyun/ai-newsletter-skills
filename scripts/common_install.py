@@ -10,6 +10,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SHARED_ROOT = REPO_ROOT / "shared" / "newsletter"
 COMMON_TEMPLATES = REPO_ROOT / "targets" / "common" / "templates"
+CODEX_TEMPLATES = REPO_ROOT / "targets" / "codex" / "templates"
+CLAUDE_TEMPLATES = REPO_ROOT / "targets" / "claude" / "templates"
 
 
 def copytree(src: Path, dst: Path) -> None:
@@ -92,9 +94,14 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
     render(COMMON_TEMPLATES / "newsletter_status.py.tpl", runtime_root / "scripts" / "newsletter_status.py", replacements)
     render(COMMON_TEMPLATES / "run_with_openai.py.tpl", runtime_root / "scripts" / "run_with_openai.py", replacements)
     render(COMMON_TEMPLATES / "run_with_copilot.py.tpl", runtime_root / "scripts" / "run_with_copilot.py", replacements)
+    render(COMMON_TEMPLATES / "install_codex_backend.py.tpl", runtime_root / "scripts" / "install_codex_backend.py", replacements)
+    render(COMMON_TEMPLATES / "install_claude_backend.py.tpl", runtime_root / "scripts" / "install_claude_backend.py", replacements)
     render(SHARED_ROOT / "prompts" / "generate_config.md.tpl", runtime_root / "prompts" / "generate_config.md", replacements)
     render(SHARED_ROOT / "prompts" / "run_newsletter_openai.md.tpl", runtime_root / "prompts" / "run_newsletter_openai.md", replacements)
     render(SHARED_ROOT / "prompts" / "run_newsletter_copilot.md.tpl", runtime_root / "prompts" / "run_newsletter_copilot.md", replacements)
+    shutil.copy2(SHARED_ROOT / "prompts" / "run_newsletter_codex.md.tpl", runtime_root / "prompts" / "run_newsletter_codex.md.tpl")
+    mergetree(CODEX_TEMPLATES, runtime_root / "integrations" / "codex")
+    mergetree(CLAUDE_TEMPLATES, runtime_root / "integrations" / "claude")
 
     for name in (
         "newsletter-onboard",
@@ -120,6 +127,8 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
         "newsletter_status.py",
         "run_with_openai.py",
         "run_with_copilot.py",
+        "install_codex_backend.py",
+        "install_claude_backend.py",
     ):
         (runtime_root / "scripts" / script_name).chmod(0o755)
 
