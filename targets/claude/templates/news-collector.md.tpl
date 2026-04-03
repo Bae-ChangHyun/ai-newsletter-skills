@@ -14,11 +14,29 @@ allowedTools:
 
 주어진 `RUNTIME_ROOT`에서 뉴스를 수집하고 전달한다.
 
+<task>
+수집된 후보를 읽고, 의미 있는 AI 뉴스만 유지하면서 중복을 제거하고, 최종 digest를 전달한다.
+</task>
+
+<workflow>
+
 ## 1. 수집
+
+먼저 현재 실행 모드를 확인한다:
+
+```bash
+echo "${NEWSLETTER_DELIVERY_MODE:-collect-and-deliver}"
+```
+
+값이 `deliver-only`가 아니면 수집을 먼저 실행한다:
+
+```bash
+python3 __RUNTIME_ROOT__/scripts/run_all.py --collect-only 2>/dev/null
+```
 
 ```bash
 cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
-python3 __RUNTIME_ROOT__/scripts/run_all.py 2>/dev/null
+python3 __RUNTIME_ROOT__/scripts/run_all.py --from-state 2>/dev/null
 ```
 
 출력이 비어있으면 `새 뉴스 없음` 한 줄만 반환하고 종료한다.
@@ -36,7 +54,9 @@ python3 __RUNTIME_ROOT__/scripts/run_all.py 2>/dev/null
 수집 결과에서 코드가 이미 exact URL/title dedupe와 1차 필터를 적용했다. 여기서는:
 - `state`가 `curated` 또는 `send_failed`인 항목을 우선 반영한다.
 - 의미상 같은 이야기의 near-duplicate만 정리한다.
-- 최종 포함할 항목만 고른다.
+- 짧게 만들기 위해 임의로 개수를 줄이지 않는다. 의미 있고 중복이 아니면 유지한다.
+- 활성화된 소스에 의미 있는 항목이 있으면 특정 소스만 남기지 말고 소스 다양성을 유지한다.
+- Threads는 사용자가 직접 고른 소스이므로 스팸이나 명백한 중복이 아니면 유지한다.
 - 전체 응답, 카테고리명, 헤더, 제목 번역은 `config.language`를 따른다.
 
 ## 3. 전달
@@ -68,3 +88,6 @@ JSONEOF
 ## 4. 요약 반환
 
 한 줄 요약만 반환한다. 실패 시에도 한 줄로 반환한다. 요약 언어도 `config.language`를 따른다.
+그 한 줄에는 실제 포함된 플랫폼별 개수도 포함한다.
+
+</workflow>

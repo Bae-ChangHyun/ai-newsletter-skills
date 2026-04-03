@@ -36,20 +36,6 @@ const DEFAULT_SUBREDDITS = [
   "Qwen_AI",
   "Vllm",
 ];
-const DEFAULT_AI_KEYWORDS = [
-  "ai", "llm", "gpt", "claude", "anthropic", "openai", "gemini", "mistral",
-  "llama", "qwen", "deepseek", "copilot", "chatgpt", "transformer", "diffusion",
-  "stable diffusion", "midjourney", "dall-e", "sora", "neural", "machine learning",
-  "deep learning", "langchain", "llamaindex", "hugging face", "huggingface",
-  "nvidia", "cuda", "gpu", "rag", "vector", "embedding", "fine-tune", "finetune",
-  "lora", "qlora", "quantiz", "gguf", "ggml", "ollama", "vllm", "mlx",
-  "agent", "mcp", "tool use", "function calling", "reasoning", "chain of thought",
-  "benchmark", "eval", "arxiv", "paper", "model", "inference", "training",
-  "open source", "opensource", "open-source", "foundation model", "multimodal",
-  "vision", "speech", "tts", "stt", "whisper", "grok", "xai", "cohere",
-  "meta ai", "gemma", "phi", "openclaw", "cursor", "windsurf", "aider",
-  "coding agent", "code generation", "robotics", "autonomous", "self-driving",
-];
 const BACK = "__back__";
 
 const BACKENDS = [
@@ -145,7 +131,6 @@ function buildAnswers(state) {
     backend_settings: state.backendSettings,
     platforms: state.platforms,
     subreddits: state.subreddits,
-    ai_keywords: state.aiKeywords,
     telegram: state.telegram,
     schedule: state.schedule,
     rsshub_url: state.rsshubUrl ?? undefined,
@@ -553,7 +538,6 @@ async function runWizard() {
     backendSettings: existingConfig.backend?.settings || {},
     platforms: [...(existingConfig.platforms?.length ? existingConfig.platforms : DEFAULT_PLATFORMS)],
     subreddits: [...(existingConfig.subreddits?.length ? existingConfig.subreddits : DEFAULT_SUBREDDITS)],
-    aiKeywords: [...(existingConfig.ai_keywords || [])],
     telegram: {
       enabled: existingConfig.telegram?.enabled ?? true,
       bot_token: existingConfig.telegram?.bot_token || "",
@@ -579,7 +563,6 @@ async function runWizard() {
     "backend_settings",
     "platforms",
     "subreddits",
-    "ai_keywords",
     "telegram_enabled",
     "telegram_bot_token",
     "telegram_chat_id",
@@ -732,27 +715,6 @@ async function runWizard() {
         }
         state.subreddits = checked.valid;
       }
-      index += 1;
-      continue;
-    }
-
-    if (step === "ai_keywords") {
-      await note(
-        `Current AI keywords:\n${uniqueList([...DEFAULT_AI_KEYWORDS, ...state.aiKeywords]).join(", ")}`,
-        "AI keywords",
-      );
-      const value = await askText(
-        "Extra AI keywords to emphasize in curation (comma-separated, optional)",
-        state.aiKeywords.join(","),
-      );
-      if (value === BACK) {
-        index = previousStep(steps, index, state);
-        continue;
-      }
-      state.aiKeywords = String(value || "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
       index += 1;
       continue;
     }

@@ -34,10 +34,9 @@ def main() -> None:
     print("Platforms:", ", ".join(config.get("platforms", [])) or "-")
     if config.get("subreddits"):
         print("Subreddits:", ", ".join(config["subreddits"]))
-    if config.get("ai_keywords"):
-        print("AI keywords:", ", ".join(config["ai_keywords"]))
     schedule = config.get("schedule", {})
-    print("Schedule:", schedule.get("label") or schedule.get("expression") or schedule.get("cron", "-"))
+    print("Delivery schedule:", schedule.get("label") or schedule.get("expression") or schedule.get("cron", "-"))
+    print("Collector schedule:", "hourly")
     telegram = config.get("telegram", {})
     print("Telegram:", "enabled" if telegram.get("enabled") else "disabled")
     if config.get("threads_accounts"):
@@ -46,7 +45,8 @@ def main() -> None:
 
     result = subprocess.run(["python3", DISPATCH, "status"], text=True, capture_output=True, check=False)
     text = (result.stdout or result.stderr or "").strip()
-    print("Runner status:", text or "unknown")
+    print("Cron status:")
+    print(text or "unknown")
 
 
 if __name__ == "__main__":

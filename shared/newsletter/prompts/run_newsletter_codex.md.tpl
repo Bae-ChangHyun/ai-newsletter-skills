@@ -6,7 +6,7 @@ Task:
 
 Required workflow:
 1. Read `__RUNTIME_ROOT__/.data/config.json` if it exists.
-2. Run `python3 __RUNTIME_ROOT__/scripts/run_all.py` to collect raw items.
+2. Read `__RUNTIME_ROOT__/.data/raw_items.json` for the collected raw items.
 3. If there are no items, respond with the no-news message in `config.language` if present. If missing, use `새 뉴스 없음`.
 4. Curate the raw items:
 - code has already done exact URL/title prefiltering and state tracking
@@ -14,6 +14,10 @@ Required workflow:
 - keep only meaningful AI news
 - remove semantic duplicates and near-duplicates across sources
 - drop weak or noisy items
+- do not impose a target item count; if items are meaningful and non-duplicate, keep them
+- preserve source breadth: if an enabled source has meaningful, non-duplicate items, include at least one item from that source instead of collapsing everything into HN/TLDR/GeekNews
+- do not drop Reddit or Threads items only because a similar HN/TLDR item exists; drop them only when they are clearly weaker or truly redundant
+- Threads is a user-curated source; if a Threads item is not spammy and not redundant, keep it
 - categorize with judgment into:
   - `🔬 모델 & 리서치`
   - `🛠️ 도구 & 오픈소스`
@@ -37,6 +41,7 @@ Required workflow:
 - `python3 __RUNTIME_ROOT__/scripts/mark_delivered.py`
 10. If Telegram is disabled and you print the digest to the terminal instead, still mark the actually included digest items as delivered with the same script.
 11. Final answer must be one line only, in `config.language` if present.
+12. That final line must include per-platform selected counts for every platform that contributed at least one delivered item.
 
 Constraints:
 - Do not modify config unless required for normal collector delivery-state updates.

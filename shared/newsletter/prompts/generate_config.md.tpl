@@ -12,7 +12,6 @@ Requirements:
     },
     "platforms": ["hn", "reddit"],
     "subreddits": ["OpenAI"],
-    "ai_keywords": ["agent"],
     "rsshub_url": "http://localhost:1200",
     "threads_accounts": ["claudeai"],
     "telegram": {

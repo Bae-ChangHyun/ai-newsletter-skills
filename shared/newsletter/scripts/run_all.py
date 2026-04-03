@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Unified newsletter runner — runs selected platform collectors in parallel.
+"""Unified newsletter runner.
 
-Outputs JSON grouped by platform with score-based filtering applied.
+Modes:
+- default: collect sources, update state, then output pending candidates as JSON
+- --collect-only: collect sources and update state only
+- --from-state: read pending candidates from state only
 """
 
+import argparse
 import json
 import os
 import sys
@@ -11,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from base_collector import canonicalize_url, get_entry_state, normalize_title
+from base_collector import canonicalize_url, get_entry_state, get_seen_file, is_pending, load_seen, normalize_title
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "..", ".data", "config.json")
@@ -69,7 +73,7 @@ def run_collector(platform, config):
     import importlib
     module_name = COLLECTOR_MAP.get(platform)
     if not module_name:
-        print(f"# WARN: unknown platform {platform}", file=sys.stderr)
+        print(f"WARN unknown_platform platform={platform}", file=sys.stderr)
         return []
 
     mod = importlib.import_module(module_name)
@@ -159,12 +163,63 @@ def dedupe_candidates(items):
     return list(by_title.values())
 
 
-def main():
-    config = load_config()
-    platforms = config.get("platforms", DEFAULT_PLATFORMS)
-    platform_items = {}
+def pending_items_from_state(platforms):
     all_candidates = []
+    for platform in platforms:
+        seen = load_seen(get_seen_file(platform))
+        pending_items = []
+        for entry in seen.values():
+            if not is_pending(entry):
+                continue
+            if not should_keep(entry, platform):
+                continue
+            item = dict(entry)
+            item["platform"] = platform
+            pending_items.append(item)
+        deduped = dedupe_candidates(pending_items)
+        all_candidates.extend(deduped)
+        print(
+            "PENDING "
+            f"platform={platform} "
+            f"pending={len(pending_items)} "
+            f"pre_deduped={len(deduped)}",
+            file=sys.stderr,
+        )
+    return all_candidates
 
+
+def format_platform_items(items):
+    platform_items = {}
+    final_candidates = dedupe_candidates(items)
+    final_candidates.sort(key=candidate_priority)
+    for item in final_candidates:
+        platform = item.get("platform") or item.get("source") or "unknown"
+        payload = {
+            "title": item["title"],
+            "url": item["url"],
+            "score": item.get("score", 0),
+            "comments": item.get("comments", 0),
+            "source": item.get("source", platform),
+            "state": get_entry_state(item),
+        }
+        if item.get("time"):
+            payload["time"] = item.get("time")
+        if item.get("description"):
+            payload["description"] = item.get("description")
+        platform_items.setdefault(platform, []).append(payload)
+
+    print(
+        "COLLECT_TOTAL "
+        f"collected={len(items)} "
+        f"final={len(final_candidates)} "
+        f"platforms={len(platform_items)}",
+        file=sys.stderr,
+    )
+    return platform_items
+
+
+def collect_platform_items(platforms, config):
+    all_candidates = []
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {
             executor.submit(run_collector, p, config): p
@@ -179,31 +234,49 @@ def main():
                 for item in deduped:
                     item["platform"] = platform
                 all_candidates.extend(deduped)
-                print(f"# {platform}: {len(items)} raw → {len(filtered)} filtered → {len(deduped)} pre-deduped", file=sys.stderr)
+                print(
+                    "COLLECT "
+                    f"platform={platform} "
+                    "status=ok "
+                    f"raw={len(items)} "
+                    f"filtered={len(filtered)} "
+                    f"pre_deduped={len(deduped)}",
+                    file=sys.stderr,
+                )
             except Exception as e:
-                print(f"# ERROR: {platform} failed: {e}", file=sys.stderr)
+                print(f"COLLECT platform={platform} status=error error={e}", file=sys.stderr)
+    return all_candidates
 
-    final_candidates = dedupe_candidates(all_candidates)
-    final_candidates.sort(key=candidate_priority)
-    for item in final_candidates:
-        platform = item.get("platform") or item.get("source") or "unknown"
-        platform_items.setdefault(platform, []).append({
-            "title": item["title"],
-            "url": item["url"],
-            "score": item.get("score", 0),
-            "comments": item.get("comments", 0),
-            "source": item.get("source", platform),
-            "state": get_entry_state(item),
-        })
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--collect-only", action="store_true")
+    parser.add_argument("--from-state", action="store_true")
+    args = parser.parse_args()
+
+    config = load_config()
+    platforms = config.get("platforms", DEFAULT_PLATFORMS)
+    if args.collect_only and args.from_state:
+        raise SystemExit("Use either --collect-only or --from-state, not both.")
+
+    if args.from_state:
+        platform_items = format_platform_items(pending_items_from_state(platforms))
+    else:
+        collected_candidates = collect_platform_items(platforms, config)
+        if args.collect_only:
+            print(
+                "COLLECT_TOTAL "
+                f"collected={len(collected_candidates)} "
+                "final=0 platforms=0 mode=collect-only",
+                file=sys.stderr,
+            )
+            return
+        platform_items = format_platform_items(pending_items_from_state(platforms))
 
     if platform_items:
-        print(
-            f"# Total candidates: {len(all_candidates)} collected → {len(final_candidates)} after global prefilter/dedupe",
-            file=sys.stderr,
-        )
         print(json.dumps(platform_items, ensure_ascii=False, indent=2))
     else:
-        print("NO_NEW_ITEMS", file=sys.stderr)
+        print("COLLECT_TOTAL collected=0 final=0 platforms=0", file=sys.stderr)
 
 
 if __name__ == "__main__":

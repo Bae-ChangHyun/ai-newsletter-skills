@@ -68,7 +68,6 @@ newsletter-stop
 - `backend`
 - source platforms
 - Reddit subreddits
-- curation에서 더 강조할 extra AI keywords
 - Telegram 설정
 - RSSHub URL
 - Threads handles

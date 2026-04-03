@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Reddit AI collector."""
 
+import os
 import sys
 import time
-import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from base_collector import fetch_json, is_ai_related, run_collector, format_output
+from base_collector import fetch_json, get_schedule_window_hours, run_collector, format_output
 
-OUTPUT_MAX_AGE_HOURS = 1
+DEFAULT_FETCH_HOURS = 12
 DEFAULT_SUBREDDITS = [
     "Anthropic", "ArtificialInteligence", "ClaudeAI", "GithubCopilot",
     "LocalLLaMA", "ollama", "OpenAI", "openclaw", "opensource", "Qwen_AI", "Vllm",
@@ -20,8 +20,9 @@ def fetch_items(subreddits=None):
         subreddits = DEFAULT_SUBREDDITS
     seen_urls = set()
     items = []
-    cutoff = time.time() - 1 * 3600
-    endpoints = ["hot.json?limit=30", "rising.json?limit=20"]
+    fetch_hours = get_schedule_window_hours(DEFAULT_FETCH_HOURS)
+    cutoff = time.time() - fetch_hours * 3600 if fetch_hours is not None else 0
+    endpoints = ["new.json?limit=50", "hot.json?limit=30", "rising.json?limit=20"]
     for sub in subreddits:
         for endpoint in endpoints:
             data = fetch_json(
@@ -42,8 +43,6 @@ def fetch_items(subreddits=None):
                     continue
                 seen_urls.add(permalink)
                 score = d.get("score", 0)
-                if not is_ai_related(title, url):
-                    continue
                 items.append({
                     "title": title,
                     "url": permalink,
@@ -60,7 +59,7 @@ def collect(subreddits=None):
     return run_collector(
         "reddit",
         lambda: fetch_items(subreddits),
-        output_max_age_hours=OUTPUT_MAX_AGE_HOURS,
+        output_max_age_hours=DEFAULT_FETCH_HOURS,
     )
 
 

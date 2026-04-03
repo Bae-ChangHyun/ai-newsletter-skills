@@ -100,11 +100,17 @@ def call_openai_compatible(config: dict, candidates: dict) -> dict:
 
 
 def run_collect() -> dict:
-    result = subprocess.run(["python3", RUN_ALL], text=True, capture_output=True, check=False)
+    result = subprocess.run(["python3", RUN_ALL, "--from-state"], text=True, capture_output=True, check=False)
     stdout = result.stdout.strip()
     if not stdout:
         return {}
     return json.loads(stdout)
+
+
+def collect_if_needed() -> None:
+    if os.environ.get("NEWSLETTER_DELIVERY_MODE") == "deliver-only":
+        return
+    subprocess.run(["python3", RUN_ALL, "--collect-only"], text=True, check=True)
 
 
 def mark(script: str, selected: dict) -> None:
@@ -143,6 +149,7 @@ def write_last_message(summary: str) -> None:
 def main() -> int:
     config = load_config()
     language = config.get("language", "ko")
+    collect_if_needed()
     candidates = run_collect()
     if not candidates:
         summary = no_news_message(language)
