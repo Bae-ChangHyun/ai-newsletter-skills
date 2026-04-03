@@ -131,7 +131,7 @@ function buildAnswers(state) {
     backend_settings: state.backendSettings,
     platforms: state.platforms,
     subreddits: state.subreddits,
-    telegram: state.telegram,
+    telegram: { ...state.telegram, enabled: true },
     schedule: state.schedule,
     rsshub_url: state.rsshubUrl ?? undefined,
     threads_accounts: state.threadsAccounts ?? [],
@@ -584,7 +584,7 @@ async function runWizard() {
     "backend_settings",
     "platforms",
     "subreddits",
-    "telegram_enabled",
+    "delivery_platform",
     "telegram_bot_token",
     "telegram_chat_id",
     "rsshub_url",
@@ -597,10 +597,6 @@ async function runWizard() {
   while (index < steps.length) {
     const step = steps[index];
 
-    if ((step === "telegram_bot_token" || step === "telegram_chat_id") && !state.telegram.enabled) {
-      index += 1;
-      continue;
-    }
     if ((step === "rsshub_url" || step === "threads_accounts") && !state.platforms.includes("threads")) {
       index += 1;
       continue;
@@ -740,13 +736,17 @@ async function runWizard() {
       continue;
     }
 
-    if (step === "telegram_enabled") {
-      const value = await askConfirm("Enable Telegram delivery?", state.telegram.enabled);
+    if (step === "delivery_platform") {
+      const value = await askSelect(
+        "Choose delivery platform",
+        [{ value: "telegram", label: "Telegram" }],
+        "telegram",
+      );
       if (value === BACK) {
         index = previousStep(steps, index, state);
         continue;
       }
-      state.telegram.enabled = value;
+      state.telegram.enabled = true;
       index += 1;
       continue;
     }
@@ -861,7 +861,7 @@ async function runWizard() {
 
     if (step === "schedule") {
       const value = await askValidatedText(
-        "Schedule interval or 5-field cron",
+        "How often should we deliver the newsletter?",
         state.schedule.label || state.schedule.expression || state.schedule.cron || "1h",
         validateSchedule,
       );

@@ -155,7 +155,15 @@ def build_collector_entry(now: datetime) -> str:
 
 def run_immediate_collect() -> bool:
     collect_script = os.path.join(SCRIPT_DIR, "run_collect_cycle.py")
-    result = subprocess.run(["python3", collect_script], check=False)
+    os.makedirs(os.path.dirname(COLLECT_LOG_FILE), exist_ok=True)
+    with open(COLLECT_LOG_FILE, "a", encoding="utf-8") as log_file:
+        result = subprocess.run(
+            ["python3", collect_script],
+            stdout=log_file,
+            stderr=log_file,
+            text=True,
+            check=False,
+        )
     return result.returncode == 0
 
 
