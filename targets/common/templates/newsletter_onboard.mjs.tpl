@@ -132,6 +132,22 @@ function uniqueList(values) {
   return [...new Set((values || []).filter(Boolean))];
 }
 
+function uniqueOptions(options = []) {
+  const seen = new Set();
+  const result = [];
+  for (const option of options) {
+    const value = String(option?.value || "").trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push({
+      value,
+      label: String(option?.label || value).trim() || value,
+      hint: option?.hint,
+    });
+  }
+  return result;
+}
+
 function subredditOptions(existing = []) {
   return uniqueList([...DEFAULT_SUBREDDITS, ...existing]).map((name) => ({
     value: name,
@@ -477,7 +493,6 @@ async function fetchCopilotModels(githubToken) {
   const data = await response.json();
   const items = Array.isArray(data?.data) ? data.data : [];
   return items
-    .filter((item) => item?.model_picker_enabled)
     .filter((item) => {
       const endpoints = Array.isArray(item?.supported_endpoints) ? item.supported_endpoints : [];
       return endpoints.length === 0 || endpoints.includes("chat");
@@ -485,6 +500,7 @@ async function fetchCopilotModels(githubToken) {
     .map((item) => ({
       value: String(item?.id || "").trim(),
       label: formatCopilotModelLabel(item),
+      hint: item?.model_picker_enabled ? "available on this account" : "reported by Copilot API",
     }))
     .filter((item) => item.value);
 }
@@ -901,10 +917,12 @@ async function runWizard() {
             continue;
           }
         }
-        let copilotModels = COPILOT_MODELS;
+        let copilotModels = [...COPILOT_MODELS];
         try {
           const fetchedModels = await fetchCopilotModels(githubToken);
-          if (fetchedModels.length > 0) copilotModels = fetchedModels;
+          if (fetchedModels.length > 0) {
+            copilotModels = uniqueOptions([...fetchedModels, ...COPILOT_MODELS]);
+          }
         } catch (error) {
           await note(
             `${String(error?.message || error)}\nFalling back to the built-in model list.`,
