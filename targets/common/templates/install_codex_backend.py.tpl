@@ -21,10 +21,13 @@ def render(src: Path, dst: Path, replacements: dict[str, str]) -> None:
 
 
 def main() -> None:
+    runtime_token = "__" + "RUNTIME_ROOT__"
+    codex_bin_token = "__" + "DEFAULT_CODEX_BIN__"
+    workdir_token = "__" + "DEFAULT_WORKDIR__"
     replacements = {
-        "__RUNTIME_ROOT__": str(RUNTIME_ROOT),
-        "__DEFAULT_CODEX_BIN__": "__DEFAULT_CODEX_BIN__",
-        "__DEFAULT_WORKDIR__": "__DEFAULT_WORKDIR__",
+        runtime_token: str(RUNTIME_ROOT),
+        codex_bin_token: "__DEFAULT_CODEX_BIN__",
+        workdir_token: "__DEFAULT_WORKDIR__",
     }
     for name in ("newsletter-now", "newsletter-start", "newsletter-stop", "newsletter-status"):
         render(TEMPLATES / f"{name}.SKILL.md.tpl", SKILLS_ROOT / name / "SKILL.md", replacements)

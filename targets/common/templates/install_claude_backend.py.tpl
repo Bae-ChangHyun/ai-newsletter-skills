@@ -20,9 +20,11 @@ def render(src: Path, dst: Path, replacements: dict[str, str]) -> None:
 
 
 def main() -> None:
+    runtime_token = "__" + "RUNTIME_ROOT__"
+    claude_bin_token = "__" + "DEFAULT_CLAUDE_BIN__"
     replacements = {
-        "__RUNTIME_ROOT__": str(RUNTIME_ROOT),
-        "__DEFAULT_CLAUDE_BIN__": "__DEFAULT_CLAUDE_BIN__",
+        runtime_token: str(RUNTIME_ROOT),
+        claude_bin_token: "__DEFAULT_CLAUDE_BIN__",
     }
     for name in ("newsletter-now", "newsletter-start", "newsletter-stop", "newsletter-status"):
         render(TEMPLATES / f"{name}.SKILL.md.tpl", SKILLS_ROOT / name / "SKILL.md", replacements)
