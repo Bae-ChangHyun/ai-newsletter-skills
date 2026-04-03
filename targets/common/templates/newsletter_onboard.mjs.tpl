@@ -168,25 +168,46 @@ function randomCode() {
 }
 
 async function telegramApi(token, method, payload) {
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data?.ok) {
-    const description = data?.description || `${response.status}`;
-    throw new Error(`Telegram API error: ${description}`);
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.ok) {
+      const description = data?.description || `${response.status}`;
+      throw new Error(`Telegram API error: ${description}`);
+    }
+    return data.result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Telegram request failed: ${message}`);
   }
-  return data.result;
 }
 
 async function verifyTelegram(botToken, chatId) {
-  await telegramApi(botToken, "getMe", {});
+  try {
+    await telegramApi(botToken, "getMe", {});
+  } catch (error) {
+    await note(
+      error instanceof Error ? error.message : String(error),
+      "Telegram validation failed",
+    );
+    return false;
+  }
   await note("Telegram bot token OK", "Telegram");
   const code = randomCode();
   const message = `Newsletter setup verification code: ${code}`;
-  await telegramApi(botToken, "sendMessage", { chat_id: chatId, text: message });
+  try {
+    await telegramApi(botToken, "sendMessage", { chat_id: chatId, text: message });
+  } catch (error) {
+    await note(
+      error instanceof Error ? error.message : String(error),
+      "Telegram delivery test failed",
+    );
+    return false;
+  }
   const entered = await askRequiredText(
     "Enter the verification code you received on Telegram",
     "",
@@ -776,6 +797,10 @@ async function runWizard() {
       }
       state.rsshubUrl = value;
       if (!(await checkRsshub(value))) {
+        await note(
+          "RSSHub is not reachable. Check that your self-hosted RSSHub is running and accessible, then retry or disable Threads.",
+          "RSSHub validation failed",
+        );
         const choice = await askSelect(
           "RSSHub is not reachable. What do you want to do?",
           [
