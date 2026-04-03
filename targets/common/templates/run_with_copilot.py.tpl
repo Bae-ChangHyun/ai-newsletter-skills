@@ -19,7 +19,8 @@ MARK_FAILED = os.path.join(RUNTIME_ROOT, "scripts", "mark_send_failed.py")
 MARK_DELIVERED = os.path.join(RUNTIME_ROOT, "scripts", "mark_delivered.py")
 LAST_MESSAGE_FILE = os.path.join(RUNTIME_ROOT, ".data", "last_run.txt")
 COPILOT_GITHUB_TOKEN_FILE = os.path.join(RUNTIME_ROOT, ".data", "credentials", "github_copilot_github_token.json")
-DEFAULT_COPILOT_API_BASE_URL = "https://api.individual.githubcopilot.com"
+DEFAULT_COPILOT_API_BASE_URL = "https://api.githubcopilot.com"
+COPILOT_USER_AGENT = "ai-newsletter-skills/1.0"
 KST = timezone(timedelta(hours=9))
 
 
@@ -103,52 +104,20 @@ def http_json(url: str, method: str = "GET", headers: dict | None = None, payloa
         raise RuntimeError(f"GitHub Copilot request failed: {exc}") from exc
 
 
-def derive_copilot_base_url(token: str) -> str:
-    import re
-
-    match = re.search(r"(?:^|;)\s*proxy-ep=([^;\s]+)", token, re.IGNORECASE)
-    if not match:
-        return DEFAULT_COPILOT_API_BASE_URL
-    proxy_ep = match.group(1).strip()
-    if not proxy_ep:
-        return DEFAULT_COPILOT_API_BASE_URL
-    normalized = proxy_ep if proxy_ep.startswith(("http://", "https://")) else f"https://{proxy_ep}"
-    try:
-        from urllib.parse import urlparse
-
-        hostname = urlparse(normalized).hostname or ""
-        if not hostname:
-            return DEFAULT_COPILOT_API_BASE_URL
-        return f"https://{hostname.replace('proxy.', 'api.', 1)}"
-    except Exception:
-        return DEFAULT_COPILOT_API_BASE_URL
-
-
-def resolve_copilot_runtime_auth() -> tuple[str, str]:
-    github_token = load_copilot_github_token()
-    data = http_json(
-        "https://api.github.com/copilot_internal/v2/token",
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {github_token}",
-            "User-Agent": "ai-newsletter-skills/1.0",
-        },
-    )
-    token = str(data.get("token") or "").strip()
-    if not token:
-        raise RuntimeError("Copilot token response missing token")
-    return token, derive_copilot_base_url(token)
-
-
 def call_copilot(config: dict, candidates: dict) -> dict:
     model = ((config.get("backend") or {}).get("settings") or {}).get("model")
     if not model:
         raise RuntimeError("backend.settings.model is required")
-    token, base_url = resolve_copilot_runtime_auth()
+    github_token = load_copilot_github_token()
     response = http_json(
-        f"{base_url.rstrip('/')}/chat/completions",
+        f"{DEFAULT_COPILOT_API_BASE_URL.rstrip('/')}/chat/completions",
         method="POST",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={
+            "Authorization": f"Bearer {github_token}",
+            "User-Agent": COPILOT_USER_AGENT,
+            "Openai-Intent": "conversation-edits",
+            "x-initiator": "user",
+        },
         payload={
             "model": model,
             "temperature": 0.2,

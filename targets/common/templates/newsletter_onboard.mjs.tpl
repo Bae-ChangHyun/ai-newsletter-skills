@@ -23,7 +23,9 @@ const COPILOT_GITHUB_TOKEN_FILE = path.join(CREDENTIALS_DIR, "github_copilot_git
 const CODEX_BIN = process.env.CODEX_BIN || "__DEFAULT_CODEX_BIN__";
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "__DEFAULT_CLAUDE_BIN__";
 const DEFAULT_WORKDIR = "__DEFAULT_WORKDIR__";
-const GITHUB_COPILOT_CLIENT_ID = "Ov23liZ3oXuG0kCKmuyF";
+const GITHUB_COPILOT_CLIENT_ID = "Ov23li8tweQw6odWQebz";
+const GITHUB_COPILOT_API_BASE_URL = "https://api.githubcopilot.com";
+const GITHUB_COPILOT_USER_AGENT = "ai-newsletter-skills/1.0";
 const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr"];
 const DEFAULT_SUBREDDITS = [
   "Anthropic",
@@ -376,9 +378,10 @@ async function githubOAuthJson(url, body) {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/json",
+      "User-Agent": GITHUB_COPILOT_USER_AGENT,
     },
-    body: new URLSearchParams(body),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw new Error(`GitHub OAuth failed: HTTP ${response.status}`);
@@ -451,36 +454,39 @@ async function runCopilotDeviceLogin() {
   return pollCopilotAccessToken(device.device_code, device.interval, device.expires_in);
 }
 
-async function exchangeCopilotRuntimeToken(githubToken) {
-  const response = await fetch("https://api.github.com/copilot_internal/v2/token", {
+function formatCopilotModelLabel(item) {
+  const name = String(item?.name || item?.id || "").trim();
+  const id = String(item?.id || "").trim();
+  if (!name) return id;
+  if (!id || name === id) return name;
+  return `${name} (${id})`;
+}
+
+async function fetchCopilotModels(githubToken) {
+  const response = await fetch(`${GITHUB_COPILOT_API_BASE_URL}/models`, {
     method: "GET",
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${githubToken}`,
-      "User-Agent": "ai-newsletter-skills/1.0",
+      "User-Agent": GITHUB_COPILOT_USER_AGENT,
     },
   });
   if (!response.ok) {
-    throw new Error(`Copilot token exchange failed: HTTP ${response.status}`);
+    throw new Error(`GitHub Copilot models fetch failed: HTTP ${response.status}`);
   }
   const data = await response.json();
-  const token = String(data?.token || "").trim();
-  if (!token) {
-    throw new Error("Copilot token response missing token");
-  }
-  const proxyMatch = token.match(/(?:^|;)\\s*proxy-ep=([^;\\s]+)/i);
-  const proxyEp = proxyMatch?.[1]?.trim() || "";
-  let baseUrl = "https://api.individual.githubcopilot.com";
-  if (proxyEp) {
-    try {
-      const normalized = /^https?:\/\//i.test(proxyEp) ? proxyEp : `https://${proxyEp}`;
-      const url = new URL(normalized);
-      baseUrl = `https://${url.hostname.replace(/^proxy\\./i, "api.")}`;
-    } catch {
-      baseUrl = "https://api.individual.githubcopilot.com";
-    }
-  }
-  return { token, baseUrl };
+  const items = Array.isArray(data?.data) ? data.data : [];
+  return items
+    .filter((item) => item?.model_picker_enabled)
+    .filter((item) => {
+      const endpoints = Array.isArray(item?.supported_endpoints) ? item.supported_endpoints : [];
+      return endpoints.length === 0 || endpoints.includes("chat");
+    })
+    .map((item) => ({
+      value: String(item?.id || "").trim(),
+      label: formatCopilotModelLabel(item),
+    }))
+    .filter((item) => item.value);
 }
 
 function callCodexForConfig(answers) {
@@ -523,13 +529,15 @@ async function callCopilotForConfig(answers, settings) {
   if (!model) throw new Error("GitHub Copilot model is required");
   if (!githubToken) throw new Error("GitHub Copilot login is required");
 
-  const runtimeAuth = await exchangeCopilotRuntimeToken(githubToken);
-  const url = `${runtimeAuth.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const url = `${GITHUB_COPILOT_API_BASE_URL}/chat/completions`;
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${runtimeAuth.token}`,
+      Authorization: `Bearer ${githubToken}`,
+      "User-Agent": GITHUB_COPILOT_USER_AGENT,
+      "Openai-Intent": "conversation-edits",
+      "x-initiator": "user",
     },
     body: JSON.stringify({
       model,
@@ -893,10 +901,20 @@ async function runWizard() {
             continue;
           }
         }
+        let copilotModels = COPILOT_MODELS;
+        try {
+          const fetchedModels = await fetchCopilotModels(githubToken);
+          if (fetchedModels.length > 0) copilotModels = fetchedModels;
+        } catch (error) {
+          await note(
+            `${String(error?.message || error)}\nFalling back to the built-in model list.`,
+            "GitHub Copilot Models",
+          );
+        }
         const model = await askSelect(
           "Choose a GitHub Copilot model",
-          COPILOT_MODELS,
-          state.backendSettings.model || COPILOT_MODELS[0].value,
+          copilotModels,
+          state.backendSettings.model || copilotModels[0].value,
         );
         if (model === BACK) {
           index = previousStep(steps, index, state);
