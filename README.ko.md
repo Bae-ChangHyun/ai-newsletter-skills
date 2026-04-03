@@ -145,10 +145,10 @@ docker run -d --name rsshub -p 1200:1200 diygod/rsshub
 </details>
 
 <details>
-<summary><strong>GitHub Copilot CLI</strong></summary>
+<summary><strong>GitHub Copilot</strong></summary>
 
-- 필요하면 온보딩 중 `copilot login`을 실행합니다
-- 공식 device-login 흐름을 사용합니다
+- 온보딩 중 GitHub device-login 흐름으로 인증합니다
+- 브라우저 인증 페이지를 열고 승인을 요청합니다
 - 선택한 Copilot 모델로 config 생성과 편집 실행을 처리합니다
 
 </details>

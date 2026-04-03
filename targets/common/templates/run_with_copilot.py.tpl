@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
+from urllib import error, request
 
 
 RUNTIME_ROOT = "__RUNTIME_ROOT__"
@@ -18,7 +18,8 @@ MARK_CURATED = os.path.join(RUNTIME_ROOT, "scripts", "mark_curated.py")
 MARK_FAILED = os.path.join(RUNTIME_ROOT, "scripts", "mark_send_failed.py")
 MARK_DELIVERED = os.path.join(RUNTIME_ROOT, "scripts", "mark_delivered.py")
 LAST_MESSAGE_FILE = os.path.join(RUNTIME_ROOT, ".data", "last_run.txt")
-COPILOT_BIN = os.environ.get("COPILOT_BIN", "__DEFAULT_COPILOT_BIN__")
+COPILOT_GITHUB_TOKEN_FILE = os.path.join(RUNTIME_ROOT, ".data", "credentials", "github_copilot_github_token.json")
+DEFAULT_COPILOT_API_BASE_URL = "https://api.individual.githubcopilot.com"
 KST = timezone(timedelta(hours=9))
 
 
@@ -75,31 +76,101 @@ def strip_json_response(text: str) -> str:
     return stripped
 
 
+def load_copilot_github_token() -> str:
+    with open(COPILOT_GITHUB_TOKEN_FILE, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    token = str(payload.get("github_token") or "").strip()
+    if not token:
+        raise RuntimeError("GitHub Copilot login is required")
+    return token
+
+
+def http_json(url: str, method: str = "GET", headers: dict | None = None, payload: dict | None = None) -> dict:
+    data = None
+    final_headers = dict(headers or {})
+    if payload is not None:
+      data = json.dumps(payload).encode("utf-8")
+      final_headers.setdefault("Content-Type", "application/json")
+    req = request.Request(url, data=data, method=method, headers=final_headers)
+    try:
+        with request.urlopen(req, timeout=60) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            return json.loads(body)
+    except error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GitHub Copilot API error: HTTP {exc.code} {body}") from exc
+    except Exception as exc:
+        raise RuntimeError(f"GitHub Copilot request failed: {exc}") from exc
+
+
+def derive_copilot_base_url(token: str) -> str:
+    import re
+
+    match = re.search(r"(?:^|;)\s*proxy-ep=([^;\s]+)", token, re.IGNORECASE)
+    if not match:
+        return DEFAULT_COPILOT_API_BASE_URL
+    proxy_ep = match.group(1).strip()
+    if not proxy_ep:
+        return DEFAULT_COPILOT_API_BASE_URL
+    normalized = proxy_ep if proxy_ep.startswith(("http://", "https://")) else f"https://{proxy_ep}"
+    try:
+        from urllib.parse import urlparse
+
+        hostname = urlparse(normalized).hostname or ""
+        if not hostname:
+            return DEFAULT_COPILOT_API_BASE_URL
+        return f"https://{hostname.replace('proxy.', 'api.', 1)}"
+    except Exception:
+        return DEFAULT_COPILOT_API_BASE_URL
+
+
+def resolve_copilot_runtime_auth() -> tuple[str, str]:
+    github_token = load_copilot_github_token()
+    data = http_json(
+        "https://api.github.com/copilot_internal/v2/token",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {github_token}",
+            "User-Agent": "ai-newsletter-skills/1.0",
+        },
+    )
+    token = str(data.get("token") or "").strip()
+    if not token:
+        raise RuntimeError("Copilot token response missing token")
+    return token, derive_copilot_base_url(token)
+
+
 def call_copilot(config: dict, candidates: dict) -> dict:
-    if not shutil.which(COPILOT_BIN) and COPILOT_BIN == "copilot":
-        raise RuntimeError("GitHub Copilot CLI is not installed")
     model = ((config.get("backend") or {}).get("settings") or {}).get("model")
     if not model:
         raise RuntimeError("backend.settings.model is required")
-    result = subprocess.run(
-        [
-            COPILOT_BIN,
-            "--prompt",
-            build_prompt(config, candidates),
-            "--silent",
-            "--model",
-            model,
-            "--no-ask-user",
-            "--output-format",
-            "text",
-        ],
-        text=True,
-        capture_output=True,
-        check=False,
+    token, base_url = resolve_copilot_runtime_auth()
+    response = http_json(
+        f"{base_url.rstrip('/')}/chat/completions",
+        method="POST",
+        headers={"Authorization": f"Bearer {token}"},
+        payload={
+            "model": model,
+            "temperature": 0.2,
+            "messages": [
+                {"role": "system", "content": read_prompt()},
+                {"role": "user", "content": json.dumps(
+                    {
+                        "language": config.get("language", "ko"),
+                        "now_kst": datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
+                        "candidates": candidates,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )},
+            ],
+            "response_format": {"type": "json_object"},
+        },
     )
-    if result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout or "Copilot CLI failed").strip())
-    return json.loads(strip_json_response(result.stdout))
+    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+    if isinstance(content, list):
+        content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return json.loads(strip_json_response(content))
 
 
 def mark(script: str, selected: dict) -> None:

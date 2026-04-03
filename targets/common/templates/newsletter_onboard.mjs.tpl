@@ -18,10 +18,12 @@ const HOME_ROOT = "__HOME_ROOT__";
 const RUNTIME_ROOT = "__RUNTIME_ROOT__";
 const CONFIG_FILE = path.join(RUNTIME_ROOT, ".data", "config.json");
 const PROMPT_FILE = path.join(RUNTIME_ROOT, "prompts", "generate_config.md");
+const CREDENTIALS_DIR = path.join(RUNTIME_ROOT, ".data", "credentials");
+const COPILOT_GITHUB_TOKEN_FILE = path.join(CREDENTIALS_DIR, "github_copilot_github_token.json");
 const CODEX_BIN = process.env.CODEX_BIN || "__DEFAULT_CODEX_BIN__";
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "__DEFAULT_CLAUDE_BIN__";
-const COPILOT_BIN = process.env.COPILOT_BIN || "__DEFAULT_COPILOT_BIN__";
 const DEFAULT_WORKDIR = "__DEFAULT_WORKDIR__";
+const GITHUB_COPILOT_CLIENT_ID = "Ov23liZ3oXuG0kCKmuyF";
 const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr"];
 const DEFAULT_SUBREDDITS = [
   "Anthropic",
@@ -41,7 +43,7 @@ const BACK = "__back__";
 const BACKENDS = [
   { value: "claude", label: "Claude Code" },
   { value: "codex", label: "Codex" },
-  { value: "github_copilot", label: "GitHub Copilot CLI" },
+  { value: "github_copilot", label: "GitHub Copilot" },
   { value: "openai", label: "OpenAI-compatible API" },
 ];
 
@@ -69,6 +71,36 @@ function loadExistingConfig() {
   } catch {
     return {};
   }
+}
+
+function loadSavedCopilotGitHubToken() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(COPILOT_GITHUB_TOKEN_FILE, "utf-8"));
+    return String(parsed?.github_token || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function saveCopilotGitHubToken(token) {
+  fs.mkdirSync(CREDENTIALS_DIR, { recursive: true });
+  fs.writeFileSync(
+    COPILOT_GITHUB_TOKEN_FILE,
+    `${JSON.stringify({ github_token: token, updated_at: new Date().toISOString() }, null, 2)}\n`,
+    "utf-8",
+  );
+}
+
+function tryOpenBrowser(url) {
+  const commands = [
+    ["xdg-open", [url]],
+    ["open", [url]],
+  ];
+  for (const [command, args] of commands) {
+    const result = spawnSync(command, args, { stdio: "ignore" });
+    if (result.status === 0) return true;
+  }
+  return false;
 }
 
 function uniqueList(values) {
@@ -316,6 +348,118 @@ async function validateThreadsAccounts(rsshubUrl, accounts) {
   return { valid, invalid };
 }
 
+async function githubOAuthJson(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams(body),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub OAuth failed: HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+async function requestCopilotDeviceCode() {
+  const data = await githubOAuthJson("https://github.com/login/device/code", {
+    client_id: GITHUB_COPILOT_CLIENT_ID,
+    scope: "read:user",
+  });
+  if (!data?.device_code || !data?.user_code || !data?.verification_uri) {
+    throw new Error("GitHub device code response missing fields");
+  }
+  return data;
+}
+
+async function pollCopilotAccessToken(deviceCode, intervalSeconds, expiresInSeconds) {
+  const expiresAt = Date.now() + Number(expiresInSeconds || 900) * 1000;
+  let waitMs = Math.max(1000, Number(intervalSeconds || 5) * 1000);
+  while (Date.now() < expiresAt) {
+    const data = await githubOAuthJson("https://github.com/login/oauth/access_token", {
+      client_id: GITHUB_COPILOT_CLIENT_ID,
+      device_code: deviceCode,
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+    });
+    if (typeof data?.access_token === "string" && data.access_token.trim()) {
+      return data.access_token.trim();
+    }
+    const error = String(data?.error || "unknown_error");
+    if (error === "authorization_pending") {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+    if (error === "slow_down") {
+      waitMs += 2000;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+    if (error === "expired_token") {
+      throw new Error("GitHub device code expired. Run the login again.");
+    }
+    if (error === "access_denied") {
+      throw new Error("GitHub login was cancelled.");
+    }
+    throw new Error(`GitHub device flow error: ${error}`);
+  }
+  throw new Error("GitHub device code expired. Run the login again.");
+}
+
+async function runCopilotDeviceLogin() {
+  const device = await requestCopilotDeviceCode();
+  const opened = tryOpenBrowser(device.verification_uri);
+  await note(
+    [
+      `Open: ${device.verification_uri}`,
+      `Code: ${device.user_code}`,
+      "",
+      opened ? "A browser open was attempted for you." : "Open the URL above in your browser.",
+      "",
+      "Authorize this app with a GitHub account that has an active GitHub Copilot subscription.",
+    ].join("\n"),
+    "GitHub Copilot Login",
+  );
+  const approved = await askConfirm("After authorizing in the browser, continue?", true, false);
+  if (!approved) {
+    throw new Error("GitHub Copilot login cancelled.");
+  }
+  return pollCopilotAccessToken(device.device_code, device.interval, device.expires_in);
+}
+
+async function exchangeCopilotRuntimeToken(githubToken) {
+  const response = await fetch("https://api.github.com/copilot_internal/v2/token", {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${githubToken}`,
+      "User-Agent": "ai-newsletter-skills/1.0",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Copilot token exchange failed: HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  const token = String(data?.token || "").trim();
+  if (!token) {
+    throw new Error("Copilot token response missing token");
+  }
+  const proxyMatch = token.match(/(?:^|;)\\s*proxy-ep=([^;\\s]+)/i);
+  const proxyEp = proxyMatch?.[1]?.trim() || "";
+  let baseUrl = "https://api.individual.githubcopilot.com";
+  if (proxyEp) {
+    try {
+      const normalized = /^https?:\/\//i.test(proxyEp) ? proxyEp : `https://${proxyEp}`;
+      const url = new URL(normalized);
+      baseUrl = `https://${url.hostname.replace(/^proxy\\./i, "api.")}`;
+    } catch {
+      baseUrl = "https://api.individual.githubcopilot.com";
+    }
+  }
+  return { token, baseUrl };
+}
+
 function callCodexForConfig(answers) {
   const result = spawnSync(
     CODEX_BIN,
@@ -350,25 +494,39 @@ function callClaudeForConfig(answers) {
   return JSON.parse(stripJsonResponse(result.stdout));
 }
 
-function callCopilotForConfig(answers, model) {
-  const result = spawnSync(
-    COPILOT_BIN,
-    [
-      "--prompt",
-      buildGenerationPrompt(answers),
-      "--silent",
-      "--model",
+async function callCopilotForConfig(answers, settings) {
+  const model = String(settings?.model || "").trim();
+  const githubToken = loadSavedCopilotGitHubToken();
+  if (!model) throw new Error("GitHub Copilot model is required");
+  if (!githubToken) throw new Error("GitHub Copilot login is required");
+
+  const runtimeAuth = await exchangeCopilotRuntimeToken(githubToken);
+  const url = `${runtimeAuth.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${runtimeAuth.token}`,
+    },
+    body: JSON.stringify({
       model,
-      "--no-ask-user",
-      "--output-format",
-      "text",
-    ],
-    { encoding: "utf-8" },
-  );
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || "Copilot config generation failed").trim());
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: readGenerationPrompt() },
+        { role: "user", content: JSON.stringify(answers, null, 2) },
+      ],
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub Copilot API error: ${response.status} ${await response.text()}`);
   }
-  return JSON.parse(stripJsonResponse(result.stdout));
+  const data = await response.json();
+  let content = data?.choices?.[0]?.message?.content ?? "";
+  if (Array.isArray(content)) {
+    content = content.map((part) => part?.text || "").join("");
+  }
+  return JSON.parse(stripJsonResponse(content));
 }
 
 async function callOpenAIForConfig(answers, settings) {
@@ -413,7 +571,7 @@ async function generateConfig(state) {
   const answers = buildAnswers(state);
   if (state.backend === "codex") return callCodexForConfig(answers);
   if (state.backend === "claude") return callClaudeForConfig(answers);
-  if (state.backend === "github_copilot") return callCopilotForConfig(answers, state.backendSettings.model);
+  if (state.backend === "github_copilot") return callCopilotForConfig(answers, state.backendSettings);
   if (state.backend === "openai") return callOpenAIForConfig(answers, state.backendSettings);
   throw new Error(`Unsupported backend: ${state.backend}`);
 }
@@ -588,7 +746,7 @@ async function runWizard() {
     ].join("\n"),
   );
   await note(
-    "Unified onboarding for Claude Code, Codex, GitHub Copilot CLI, and OpenAI-compatible backends.",
+    "Unified onboarding for Claude Code, Codex, GitHub Copilot, and OpenAI-compatible backends.",
     "Welcome",
   );
   await note(
@@ -661,32 +819,55 @@ async function runWizard() {
 
     if (step === "backend_settings") {
       if (state.backend === "codex") {
-        ensureBinary("codex", CODEX_BIN, "https://developers.openai.com/codex/cli");
+        try {
+          ensureBinary("codex", CODEX_BIN, "https://developers.openai.com/codex/cli");
+        } catch (error) {
+          await note(String(error?.message || error), "Backend not available");
+          index = previousStep(steps, index, state);
+          continue;
+        }
         state.backendSettings = {};
         index += 1;
         continue;
       }
       if (state.backend === "claude") {
-        ensureBinary("claude", CLAUDE_BIN, "Install Claude Code first.");
+        try {
+          ensureBinary("claude", CLAUDE_BIN, "Install Claude Code first.");
+        } catch (error) {
+          await note(String(error?.message || error), "Backend not available");
+          index = previousStep(steps, index, state);
+          continue;
+        }
         state.backendSettings = {};
         index += 1;
         continue;
       }
       if (state.backend === "github_copilot") {
-        ensureBinary("copilot", COPILOT_BIN, "Install GitHub Copilot CLI first.");
+        const savedGitHubToken = loadSavedCopilotGitHubToken();
         await note(
-          "GitHub Copilot uses the official device-login flow. The CLI may open a browser or show a verification URL and one-time code.",
+          "GitHub Copilot uses the official GitHub device-login flow. You will open github.com/login/device and enter a one-time code.",
           "GitHub Copilot Login",
         );
-        const loginNow = await askConfirm("Run `copilot login` now?", true);
-        if (loginNow === BACK) {
-          index = previousStep(steps, index, state);
-          continue;
+        let githubToken = savedGitHubToken;
+        if (savedGitHubToken) {
+          const reuse = await askConfirm("Use the saved GitHub Copilot login?", true);
+          if (reuse === BACK) {
+            index = previousStep(steps, index, state);
+            continue;
+          }
+          if (!reuse) {
+            githubToken = "";
+          }
         }
-        if (loginNow) {
-          const result = spawnSync(COPILOT_BIN, ["login"], { stdio: "inherit" });
-          if (result.status !== 0) {
-            throw new Error("GitHub Copilot login failed");
+        if (!githubToken) {
+          try {
+            githubToken = await runCopilotDeviceLogin();
+            saveCopilotGitHubToken(githubToken);
+            await note("GitHub Copilot login OK", "GitHub Copilot Login");
+          } catch (error) {
+            await note(String(error?.message || error), "GitHub Copilot Login");
+            index = previousStep(steps, index, state);
+            continue;
           }
         }
         const model = await askSelect(
@@ -698,7 +879,7 @@ async function runWizard() {
           index = previousStep(steps, index, state);
           continue;
         }
-        state.backendSettings = { model, auth_flow: "device_login" };
+        state.backendSettings = { model, auth_flow: "device_flow" };
         index += 1;
         continue;
       }
