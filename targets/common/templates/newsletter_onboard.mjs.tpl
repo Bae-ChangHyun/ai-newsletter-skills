@@ -20,11 +20,13 @@ const CONFIG_FILE = path.join(RUNTIME_ROOT, ".data", "config.json");
 const PROMPT_FILE = path.join(RUNTIME_ROOT, "prompts", "generate_config.md");
 const CREDENTIALS_DIR = path.join(RUNTIME_ROOT, ".data", "credentials");
 const COPILOT_GITHUB_TOKEN_FILE = path.join(CREDENTIALS_DIR, "github_copilot_github_token.json");
+const COPILOT_API_TOKEN_FILE = path.join(CREDENTIALS_DIR, "github_copilot_api_token.json");
 const CODEX_BIN = process.env.CODEX_BIN || "__DEFAULT_CODEX_BIN__";
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "__DEFAULT_CLAUDE_BIN__";
 const DEFAULT_WORKDIR = "__DEFAULT_WORKDIR__";
-const GITHUB_COPILOT_CLIENT_ID = "Ov23liZ3oXuG0kCKmuyF";
-const GITHUB_COPILOT_API_BASE_URL = "https://api.githubcopilot.com";
+const GITHUB_COPILOT_CLIENT_ID = "Iv1.b507a08c87ecfe98";
+const GITHUB_COPILOT_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token";
+const DEFAULT_GITHUB_COPILOT_API_BASE_URL = "https://api.individual.githubcopilot.com";
 const GITHUB_COPILOT_USER_AGENT = "ai-newsletter-skills/1.0";
 const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr"];
 const DEFAULT_SUBREDDITS = [
@@ -57,37 +59,17 @@ const PLATFORM_OPTIONS = [
   { value: "threads", label: "Threads via RSSHub" },
 ];
 
+const COPILOT_CUSTOM_MODEL = "__custom_model__";
 const COPILOT_MODELS = [
-  { value: "claude-haiku-4.5", label: "Claude Haiku 4.5 (paid 0.33x)" },
-  { value: "claude-opus-4.1", label: "Claude Opus 4.1 (paid 10x)" },
-  { value: "claude-opus-4.5", label: "Claude Opus 4.5" },
-  { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
-  { value: "claude-opus-4.6-fast", label: "Claude Opus 4.6 Fast (preview)" },
-  { value: "claude-sonnet-3.5", label: "Claude Sonnet 3.5 (paid 1x)" },
-  { value: "claude-sonnet-4", label: "Claude Sonnet 4 (paid 1x)" },
-  { value: "claude-sonnet-4.5", label: "Claude Sonnet 4.5 (paid 1x)" },
-  { value: "claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
-  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (paid 1x)" },
-  { value: "gemini-3-flash", label: "Gemini 3 Flash" },
-  { value: "gemini-3-pro", label: "Gemini 3 Pro" },
-  { value: "gemini-3.1-pro", label: "Gemini 3.1 Pro" },
-  { value: "gpt-4.1", label: "GPT-4.1 (paid 0x)" },
-  { value: "gpt-4o", label: "GPT-4o (paid 0x)" },
-  { value: "gpt-5", label: "GPT-5 (paid 1x)" },
-  { value: "gpt-5-mini", label: "GPT-5 mini (paid 0x)" },
-  { value: "gpt-5-codex", label: "GPT-5-Codex (paid 1x)" },
-  { value: "gpt-5.1", label: "GPT-5.1" },
-  { value: "gpt-5.1-codex", label: "GPT-5.1-Codex" },
-  { value: "gpt-5.1-codex-mini", label: "GPT-5.1-Codex-Mini" },
-  { value: "gpt-5.1-codex-max", label: "GPT-5.1-Codex-Max" },
-  { value: "gpt-5.2", label: "GPT-5.2 (paid 1x)" },
-  { value: "gpt-5.2-codex", label: "GPT-5.2-Codex" },
-  { value: "gpt-5.3-codex", label: "GPT-5.3-Codex" },
-  { value: "gpt-5.4", label: "GPT-5.4 (paid 1x)" },
-  { value: "gpt-5.4-mini", label: "GPT-5.4 mini" },
-  { value: "grok-code-fast-1", label: "Grok Code Fast 1 (paid 0.25x)" },
-  { value: "raptor-mini", label: "Raptor mini" },
-  { value: "goldeneye", label: "Goldeneye" },
+  { value: "claude-sonnet-4.6", label: "claude-sonnet-4.6" },
+  { value: "claude-sonnet-4.5", label: "claude-sonnet-4.5" },
+  { value: "gpt-4o", label: "gpt-4o" },
+  { value: "gpt-4.1", label: "gpt-4.1" },
+  { value: "gpt-4.1-mini", label: "gpt-4.1-mini" },
+  { value: "gpt-4.1-nano", label: "gpt-4.1-nano" },
+  { value: "o1", label: "o1" },
+  { value: "o1-mini", label: "o1-mini" },
+  { value: "o3-mini", label: "o3-mini" },
 ];
 
 function loadExistingConfig() {
@@ -101,7 +83,12 @@ function loadExistingConfig() {
 function loadSavedCopilotGitHubToken() {
   try {
     const parsed = JSON.parse(fs.readFileSync(COPILOT_GITHUB_TOKEN_FILE, "utf-8"));
-    return String(parsed?.github_token || "").trim();
+    const token = String(parsed?.github_token || "").trim();
+    const clientId = String(parsed?.client_id || "").trim();
+    if (!token || clientId !== GITHUB_COPILOT_CLIENT_ID) {
+      return "";
+    }
+    return token;
   } catch {
     return "";
   }
@@ -111,9 +98,18 @@ function saveCopilotGitHubToken(token) {
   fs.mkdirSync(CREDENTIALS_DIR, { recursive: true });
   fs.writeFileSync(
     COPILOT_GITHUB_TOKEN_FILE,
-    `${JSON.stringify({ github_token: token, updated_at: new Date().toISOString() }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        github_token: token,
+        client_id: GITHUB_COPILOT_CLIENT_ID,
+        updated_at: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
     "utf-8",
   );
+  fs.rmSync(COPILOT_API_TOKEN_FILE, { force: true });
 }
 
 function tryOpenBrowser(url) {
@@ -130,22 +126,6 @@ function tryOpenBrowser(url) {
 
 function uniqueList(values) {
   return [...new Set((values || []).filter(Boolean))];
-}
-
-function uniqueOptions(options = []) {
-  const seen = new Set();
-  const result = [];
-  for (const option of options) {
-    const value = String(option?.value || "").trim();
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    result.push({
-      value,
-      label: String(option?.label || value).trim() || value,
-      hint: option?.hint,
-    });
-  }
-  return result;
 }
 
 function subredditOptions(existing = []) {
@@ -389,15 +369,88 @@ async function validateThreadsAccounts(rsshubUrl, accounts) {
   return { valid, invalid };
 }
 
+function parseCopilotExpiresAt(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value < 100_000_000_000 ? value * 1000 : value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(parsed)) {
+      return parsed < 100_000_000_000 ? parsed * 1000 : parsed;
+    }
+  }
+  throw new Error("Copilot token response missing expires_at");
+}
+
+function loadCachedCopilotApiToken() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(COPILOT_API_TOKEN_FILE, "utf-8"));
+    return {
+      token: String(parsed?.token || "").trim(),
+      expiresAt: parseCopilotExpiresAt(parsed?.expires_at ?? parsed?.expiresAt),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isCopilotApiTokenUsable(cache, now = Date.now()) {
+  return Boolean(cache?.token) && Number(cache?.expiresAt || 0) - now > 5 * 60 * 1000;
+}
+
+function resolveCopilotProxyHost(proxyEp) {
+  const trimmed = String(proxyEp || "").trim();
+  if (!trimmed) return null;
+  const urlText = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(urlText);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function deriveCopilotApiBaseUrlFromToken(token) {
+  const trimmed = String(token || "").trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/(?:^|;)\s*proxy-ep=([^;\s]+)/i);
+  const proxyEp = match?.[1]?.trim();
+  if (!proxyEp) return null;
+  const proxyHost = resolveCopilotProxyHost(proxyEp);
+  if (!proxyHost) return null;
+  return `https://${proxyHost.replace(/^proxy\./i, "api.")}`;
+}
+
+function saveCopilotApiTokenCache(token, expiresAt) {
+  fs.mkdirSync(CREDENTIALS_DIR, { recursive: true });
+  fs.writeFileSync(
+    COPILOT_API_TOKEN_FILE,
+    `${JSON.stringify(
+      {
+        token,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+    "utf-8",
+  );
+}
+
 async function githubOAuthJson(url, body) {
+  const form = new URLSearchParams();
+  for (const [key, value] of Object.entries(body || {})) {
+    form.set(key, String(value ?? ""));
+  }
   const response = await fetch(url, {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": GITHUB_COPILOT_USER_AGENT,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify(body),
+    body: form,
   });
   if (!response.ok) {
     throw new Error(`GitHub OAuth failed: HTTP ${response.status}`);
@@ -470,39 +523,38 @@ async function runCopilotDeviceLogin() {
   return pollCopilotAccessToken(device.device_code, device.interval, device.expires_in);
 }
 
-function formatCopilotModelLabel(item) {
-  const name = String(item?.name || item?.id || "").trim();
-  const id = String(item?.id || "").trim();
-  if (!name) return id;
-  if (!id || name === id) return name;
-  return `${name} (${id})`;
-}
+async function resolveCopilotRuntimeAuth(githubToken) {
+  const cached = loadCachedCopilotApiToken();
+  if (isCopilotApiTokenUsable(cached)) {
+    return {
+      token: cached.token,
+      expiresAt: cached.expiresAt,
+      baseUrl: deriveCopilotApiBaseUrlFromToken(cached.token) || DEFAULT_GITHUB_COPILOT_API_BASE_URL,
+    };
+  }
 
-async function fetchCopilotModels(githubToken) {
-  const response = await fetch(`${GITHUB_COPILOT_API_BASE_URL}/models`, {
+  const response = await fetch(GITHUB_COPILOT_TOKEN_URL, {
     method: "GET",
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${githubToken}`,
-      "User-Agent": GITHUB_COPILOT_USER_AGENT,
     },
   });
   if (!response.ok) {
-    throw new Error(`GitHub Copilot models fetch failed: HTTP ${response.status}`);
+    throw new Error(`Copilot token exchange failed: HTTP ${response.status}`);
   }
   const data = await response.json();
-  const items = Array.isArray(data?.data) ? data.data : [];
-  return items
-    .filter((item) => {
-      const endpoints = Array.isArray(item?.supported_endpoints) ? item.supported_endpoints : [];
-      return endpoints.length === 0 || endpoints.includes("chat");
-    })
-    .map((item) => ({
-      value: String(item?.id || "").trim(),
-      label: formatCopilotModelLabel(item),
-      hint: item?.model_picker_enabled ? "available on this account" : "reported by Copilot API",
-    }))
-    .filter((item) => item.value);
+  const token = String(data?.token || "").trim();
+  const expiresAt = parseCopilotExpiresAt(data?.expires_at);
+  if (!token) {
+    throw new Error("Copilot token response missing token");
+  }
+  saveCopilotApiTokenCache(token, expiresAt);
+  return {
+    token,
+    expiresAt,
+    baseUrl: deriveCopilotApiBaseUrlFromToken(token) || DEFAULT_GITHUB_COPILOT_API_BASE_URL,
+  };
 }
 
 function callCodexForConfig(answers) {
@@ -544,16 +596,16 @@ async function callCopilotForConfig(answers, settings) {
   const githubToken = loadSavedCopilotGitHubToken();
   if (!model) throw new Error("GitHub Copilot model is required");
   if (!githubToken) throw new Error("GitHub Copilot login is required");
+  const runtimeAuth = await resolveCopilotRuntimeAuth(githubToken);
 
-  const url = `${GITHUB_COPILOT_API_BASE_URL}/chat/completions`;
+  const url = `${runtimeAuth.baseUrl.replace(/\/$/, "")}/chat/completions`;
   const response = await fetch(url, {
     method: "POST",
     headers: {
+      Accept: "application/json",
       "Content-Type": "application/json",
-      Authorization: `Bearer ${githubToken}`,
+      Authorization: `Bearer ${runtimeAuth.token}`,
       "User-Agent": GITHUB_COPILOT_USER_AGENT,
-      "Openai-Intent": "conversation-edits",
-      "x-initiator": "user",
     },
     body: JSON.stringify({
       model,
@@ -917,26 +969,43 @@ async function runWizard() {
             continue;
           }
         }
-        let copilotModels = [...COPILOT_MODELS];
         try {
-          const fetchedModels = await fetchCopilotModels(githubToken);
-          if (fetchedModels.length > 0) {
-            copilotModels = uniqueOptions([...fetchedModels, ...COPILOT_MODELS]);
-          }
+          await resolveCopilotRuntimeAuth(githubToken);
         } catch (error) {
-          await note(
-            `${String(error?.message || error)}\nFalling back to the built-in model list.`,
-            "GitHub Copilot Models",
-          );
-        }
-        const model = await askSelect(
-          "Choose a GitHub Copilot model",
-          copilotModels,
-          state.backendSettings.model || copilotModels[0].value,
-        );
-        if (model === BACK) {
+          await note(String(error?.message || error), "GitHub Copilot token exchange");
           index = previousStep(steps, index, state);
           continue;
+        }
+        const modelOptions = [
+          ...COPILOT_MODELS,
+          { value: COPILOT_CUSTOM_MODEL, label: "Custom model ID" },
+        ];
+        const initialModel = String(state.backendSettings.model || "").trim();
+        const initialChoice = initialModel
+          ? (COPILOT_MODELS.some((item) => item.value === initialModel)
+            ? initialModel
+            : COPILOT_CUSTOM_MODEL)
+          : COPILOT_MODELS[0].value;
+        let selectedModel = await askSelect(
+          "Choose a GitHub Copilot model",
+          modelOptions,
+          initialChoice || COPILOT_MODELS[0].value,
+        );
+        if (selectedModel === BACK) {
+          index = previousStep(steps, index, state);
+          continue;
+        }
+        let model = selectedModel;
+        if (selectedModel === COPILOT_CUSTOM_MODEL) {
+          model = await askRequiredText(
+            "GitHub Copilot custom model ID",
+            initialChoice === COPILOT_CUSTOM_MODEL ? initialModel : "",
+          );
+          if (model === BACK) {
+            index = previousStep(steps, index, state);
+            continue;
+          }
+          model = String(model || "").trim();
         }
         state.backendSettings = { model, auth_flow: "device_flow" };
         index += 1;
