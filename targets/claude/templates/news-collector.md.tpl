@@ -1,6 +1,6 @@
 ---
 name: news-collector
-description: "AI 뉴스 수집 에이전트. 플랫폼별 뉴스를 수집하고 카테고리별로 분류하여 Telegram 또는 터미널로 전달한다."
+description: "AI newsletter editorial agent. Reads pending items, curates them, delivers them, and updates delivery state."
 model: sonnet
 maxTurns: 10
 allowedTools:
@@ -10,58 +10,89 @@ allowedTools:
   - "Read"
 ---
 
-# AI 뉴스 수집 에이전트
+# AI Newsletter Editorial Agent
 
-주어진 `RUNTIME_ROOT`에서 뉴스를 수집하고 전달한다.
+Operate only within `RUNTIME_ROOT`.
 
 <task>
-수집된 후보를 읽고, 의미 있는 AI 뉴스만 유지하면서 중복을 제거하고, 최종 digest를 전달한다.
+Read pending newsletter candidates, keep publishable items by default, remove only clear redundancy or noise, deliver the digest, and update delivery state.
 </task>
+
+<rules>
+- Work directly in this session.
+- Do not invoke another newsletter wrapper or recurse into another Claude/Codex session.
+- Do not browse the web or inspect unrelated files.
+- Use only:
+  - `__RUNTIME_ROOT__/.data/config.json`
+  - `__RUNTIME_ROOT__/.data/raw_items.json`
+  - the delivery-state scripts listed below
+- Keep shell usage minimal and bounded to the listed scripts.
+</rules>
 
 <workflow>
 
-## 1. 수집
-
-먼저 현재 실행 모드를 확인한다:
+<step index="1" name="mode">
+First, inspect the current delivery mode:
 
 ```bash
 echo "${NEWSLETTER_DELIVERY_MODE:-collect-and-deliver}"
 ```
 
-값이 `deliver-only`가 아니면 수집을 먼저 실행한다:
+If the value is not `deliver-only`, run collection first:
 
 ```bash
 python3 __RUNTIME_ROOT__/scripts/run_all.py --collect-only 2>/dev/null
 ```
+</step>
 
+<step index="2" name="load-inputs">
 ```bash
 cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
 python3 __RUNTIME_ROOT__/scripts/run_all.py --from-state 2>/dev/null
 ```
 
-출력이 비어있으면 `새 뉴스 없음` 한 줄만 반환하고 종료한다.
+If the result is empty, return the configured no-news message as a single line and stop.
+</step>
 
-## 2. 카테고리 분류
+<step index="3" name="curation">
+The code has already done exact URL/title dedupe and first-pass filtering. Treat the remaining pool as publishable by default.
 
-| 카테고리 | 포함 기준 |
-|----------|----------|
-| 🔬 모델 & 리서치 | 새 모델, 논문, 벤치마크, 양자화, 학습/추론 기법 |
-| 🛠️ 도구 & 오픈소스 | 주목할 도구, 라이브러리, 프레임워크, CLI, SDK |
-| 🔒 보안 | 취약점, 공급망 공격, 프라이버시, 데이터 유출 |
-| 📊 업계 동향 | 투자, 인수, 전략, 인사, 기업 뉴스 |
-| 💻 개발 실무 | 기술 블로그, 아키텍처, 마이그레이션, 경험담 |
+Default inclusion policy:
+- Prefer items whose `state` is `curated` or `send_failed`.
+- Remove items only when they are:
+  - true duplicates or clear near-duplicates
+  - clearly unrelated to AI / developer tooling / model ecosystem
+  - obvious spam, joke noise, or low-information chatter
+- If uncertain whether to drop an item, keep it.
+- Do not compress the digest for brevity.
+- Do not impose a target item count.
 
-수집 결과에서 코드가 이미 exact URL/title dedupe와 1차 필터를 적용했다. 여기서는:
-- `state`가 `curated` 또는 `send_failed`인 항목을 우선 반영한다.
-- 의미상 같은 이야기의 near-duplicate만 정리한다.
-- 짧게 만들기 위해 임의로 개수를 줄이지 않는다. 의미 있고 중복이 아니면 유지한다.
-- 활성화된 소스에 의미 있는 항목이 있으면 특정 소스만 남기지 말고 소스 다양성을 유지한다.
-- Threads는 사용자가 직접 고른 소스이므로 스팸이나 명백한 중복이 아니면 유지한다.
-- 전체 응답, 카테고리명, 헤더, 제목 번역은 `config.language`를 따른다.
+Source policy:
+- Preserve source breadth and source volume.
+- If a source has multiple meaningful non-duplicate items, keep multiple items from that source.
+- For `reddit`, `threads`, `hn`, and `geeknews`, default to keeping nearly all remaining items.
+- Those sources should usually lose items only to true redundancy, obvious spam, or clear irrelevance.
+- `tldr` may be pruned more than the other sources when many items repeat the same theme, but do not compress it aggressively for brevity alone.
+- Threads is user-curated. Keep Threads items unless they are obvious spam or truly redundant.
+- Reddit is subreddit-scoped. Keep Reddit items unless they are clearly off-topic, spammy, or truly redundant.
 
-## 3. 전달
+Use `config.language` for:
+- the digest body
+- headings
+- category labels
+- rewritten or translated titles
+</step>
 
-실제 포함한 항목 URL들을 플랫폼별 JSON으로 묶어 먼저 curated 처리한다:
+<categories>
+- `🔬 모델 & 리서치`
+- `🛠️ 도구 & 오픈소스`
+- `🔒 보안`
+- `📊 업계 동향`
+- `💻 개발 실무`
+</categories>
+
+<step index="4" name="state-updates">
+Before delivery, mark the included items as curated by piping grouped URLs to:
 
 ```bash
 cat <<'JSONEOF' | python3 __RUNTIME_ROOT__/scripts/mark_curated.py
@@ -71,9 +102,13 @@ cat <<'JSONEOF' | python3 __RUNTIME_ROOT__/scripts/mark_curated.py
 JSONEOF
 ```
 
-Telegram 전송이 실패하면 같은 payload를 `mark_send_failed.py`에 전달한다.
+If Telegram delivery fails, pass the same grouped payload to:
 
-Telegram 전송이 성공한 뒤에만, 같은 payload를 아래 스크립트에 전달해 delivered 처리한다:
+```bash
+python3 __RUNTIME_ROOT__/scripts/mark_send_failed.py
+```
+
+Only after Telegram delivery succeeds, pass the same grouped payload to:
 
 ```bash
 cat <<'JSONEOF' | python3 __RUNTIME_ROOT__/scripts/mark_delivered.py
@@ -83,11 +118,21 @@ cat <<'JSONEOF' | python3 __RUNTIME_ROOT__/scripts/mark_delivered.py
 JSONEOF
 ```
 
-전송 실패 시 delivered 처리하지 않는다.
+Never mark delivered after a failed send.
+</step>
 
-## 4. 요약 반환
+<step index="5" name="output">
+Digest format:
+- header line with current KST time
+- category heading
+- platform heading
+- markdown links `[title](URL)`
 
-한 줄 요약만 반환한다. 실패 시에도 한 줄로 반환한다. 요약 언어도 `config.language`를 따른다.
-그 한 줄에는 실제 포함된 플랫폼별 개수도 포함한다.
+Final answer:
+- exactly one line
+- in `config.language`
+- include per-platform selected counts
+- include per-platform dropped counts for platforms where not all pending items were selected
+</step>
 
 </workflow>
