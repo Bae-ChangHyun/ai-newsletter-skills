@@ -168,22 +168,51 @@ function randomCode() {
 }
 
 async function telegramApi(token, method, payload) {
+  const script = `
+import json
+import sys
+import urllib.request
+import urllib.error
+
+token = sys.argv[1]
+method = sys.argv[2]
+payload = json.loads(sys.stdin.read() or "{}")
+url = f"https://api.telegram.org/bot{token}/{method}"
+data = json.dumps(payload).encode("utf-8")
+req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+
+try:
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        body = resp.read().decode("utf-8", errors="replace")
+        parsed = json.loads(body)
+        if not parsed.get("ok"):
+            raise SystemExit(json.dumps({"error": f"Telegram API error: {parsed.get('description', 'unknown error')}"}))
+        print(json.dumps({"result": parsed.get("result")}))
+except urllib.error.HTTPError as e:
+    body = e.read().decode("utf-8", errors="replace")
+    try:
+        parsed = json.loads(body)
+        msg = parsed.get("description", str(e))
+    except Exception:
+        msg = body or str(e)
+    raise SystemExit(json.dumps({"error": f"Telegram API error: {msg}"}))
+except Exception as e:
+    raise SystemExit(json.dumps({"error": f"Telegram request failed: {e}"}))
+`;
+  const result = spawnSync("python3", ["-c", script, token, method], {
+    input: JSON.stringify(payload ?? {}),
+    encoding: "utf-8",
+  });
+  let parsed = {};
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data?.ok) {
-      const description = data?.description || `${response.status}`;
-      throw new Error(`Telegram API error: ${description}`);
-    }
-    return data.result;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Telegram request failed: ${message}`);
+    parsed = JSON.parse(result.stdout || result.stderr || "{}");
+  } catch {
+    parsed = {};
   }
+  if (result.status !== 0 || parsed.error) {
+    throw new Error(parsed.error || "Telegram request failed");
+  }
+  return parsed.result;
 }
 
 async function verifyTelegram(botToken, chatId) {
@@ -222,29 +251,43 @@ async function verifyTelegram(botToken, chatId) {
 }
 
 async function validateRedditSubreddits(subreddits) {
-  const valid = [];
-  const invalid = [];
-  for (const sub of subreddits) {
-    try {
-      const response = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/about.json?raw_json=1`, {
-        headers: { "User-Agent": "ai-newsletter-onboard/1.0" },
-      });
-      if (!response.ok) {
-        invalid.push(sub);
-        continue;
-      }
-      const data = await response.json();
-      const name = data?.data?.display_name;
-      if (!name) {
-        invalid.push(sub);
-        continue;
-      }
-      valid.push(name);
-    } catch {
-      invalid.push(sub);
-    }
+  const script = `
+import json
+import sys
+import urllib.request
+
+subs = json.loads(sys.stdin.read())
+valid = []
+invalid = []
+
+for sub in subs:
+    url = f"https://www.reddit.com/r/{sub}/about.json?raw_json=1"
+    req = urllib.request.Request(url, headers={"User-Agent": "ai-newsletter-onboard/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            name = data.get("data", {}).get("display_name")
+            if name:
+                valid.append(name)
+            else:
+                invalid.append(sub)
+    except Exception:
+        invalid.append(sub)
+
+print(json.dumps({"valid": list(dict.fromkeys(valid)), "invalid": invalid}))
+`;
+  const result = spawnSync("python3", ["-c", script], {
+    input: JSON.stringify(subreddits),
+    encoding: "utf-8",
+  });
+  if (result.status !== 0) {
+    return { valid: [], invalid: [...subreddits] };
   }
-  return { valid: [...new Set(valid)], invalid };
+  try {
+    return JSON.parse(result.stdout);
+  } catch {
+    return { valid: [], invalid: [...subreddits] };
+  }
 }
 
 async function validateThreadsAccounts(rsshubUrl, accounts) {
