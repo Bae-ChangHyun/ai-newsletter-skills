@@ -23,7 +23,8 @@ COPILOT_API_TOKEN_FILE = os.path.join(RUNTIME_ROOT, ".data", "credentials", "git
 GITHUB_COPILOT_CLIENT_ID = "Iv1.b507a08c87ecfe98"
 COPILOT_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token"
 DEFAULT_COPILOT_API_BASE_URL = "https://api.individual.githubcopilot.com"
-COPILOT_USER_AGENT = "ai-newsletter-skills/1.0"
+COPILOT_IDE_USER_AGENT = "GitHubCopilotChat/0.26.7"
+COPILOT_EDITOR_VERSION = "vscode/1.96.2"
 KST = timezone(timedelta(hours=9))
 
 
@@ -106,6 +107,26 @@ def http_json(url: str, method: str = "GET", headers: dict | None = None, payloa
         raise RuntimeError(f"GitHub Copilot API error: HTTP {exc.code} {body}") from exc
     except Exception as exc:
         raise RuntimeError(f"GitHub Copilot request failed: {exc}") from exc
+
+
+def build_copilot_exchange_headers(github_token: str) -> dict:
+    return {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {github_token}",
+        "User-Agent": COPILOT_IDE_USER_AGENT,
+    }
+
+
+def build_copilot_api_headers(api_token: str, extra_headers: dict | None = None) -> dict:
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {api_token}",
+        "User-Agent": COPILOT_IDE_USER_AGENT,
+        "Editor-Version": COPILOT_EDITOR_VERSION,
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
 
 
 def parse_copilot_expires_at(value) -> int:
@@ -194,10 +215,7 @@ def resolve_copilot_api_token(github_token: str) -> dict:
 
     response = http_json(
         COPILOT_TOKEN_URL,
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {github_token}",
-        },
+        headers=build_copilot_exchange_headers(github_token),
     )
     token = str(response.get("token") or "").strip()
     if not token:
@@ -226,11 +244,7 @@ def call_copilot(config: dict, candidates: dict) -> dict:
     response = http_json(
         f"{runtime_auth['base_url'].rstrip('/')}/chat/completions",
         method="POST",
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {runtime_auth['token']}",
-            "User-Agent": COPILOT_USER_AGENT,
-        },
+        headers=build_copilot_api_headers(runtime_auth["token"]),
         payload={
             "model": model,
             "temperature": 0.2,
