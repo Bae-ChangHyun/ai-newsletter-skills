@@ -8,9 +8,6 @@ from email.utils import parsedate_to_datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base_collector import fetch_rss, run_collector, format_output
 
-MAX_NEW_ITEMS = 30
-
-
 def fetch_items():
     items = []
     tree = fetch_rss("https://www.velopers.kr/rss.xml", user_agent="openclaw-velopers/1.0")
@@ -42,7 +39,7 @@ def fetch_items():
 
 
 def collect():
-    return run_collector("velopers", fetch_items, max_new_items=MAX_NEW_ITEMS)
+    return run_collector("velopers", fetch_items)
 
 
 if __name__ == "__main__":

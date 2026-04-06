@@ -14,16 +14,26 @@ from datetime import datetime, timedelta
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RUNTIME_ROOT = os.path.dirname(SCRIPT_DIR)
 CONFIG_FILE = os.path.join(RUNTIME_ROOT, ".data", "config.json")
-LOG_FILE = os.path.join(RUNTIME_ROOT, ".data", "cron.log")
+DELIVERY_LOG_FILE = os.path.join(RUNTIME_ROOT, ".data", "delivery.log")
+COLLECT_LOG_FILE = os.path.join(RUNTIME_ROOT, ".data", "collect.log")
 DEFAULT_MARKER = "# newsletter-runtime"
+COLLECTOR_MARKER = "# newsletter-collector-runtime"
 INTERVAL_RE = re.compile(r"^\s*(\d+)\s*([mhd])\s*$")
 
 LEGACY_PATTERNS = (
     "run_with_codex.sh",
     "run_with_claude.sh",
+    "run_with_openai.py",
+    "run_with_copilot.py",
     "newsletter_now.py",
     "ai-news-newsletter",
     "codex-ai-newsletter",
+    "claude-newsletter-runtime",
+    "codex-newsletter-runtime",
+    "openai-newsletter-runtime",
+    "github-copilot-newsletter-runtime",
+    "newsletter-runtime",
+    "newsletter-collector-runtime",
 )
 
 
@@ -48,6 +58,10 @@ def resolve_runner() -> str:
 
 def resolve_marker() -> str:
     return os.environ.get("NEWSLETTER_MARKER", DEFAULT_MARKER)
+
+
+def resolve_collector_marker() -> str:
+    return os.environ.get("NEWSLETTER_COLLECTOR_MARKER", COLLECTOR_MARKER)
 
 
 def read_crontab():
@@ -79,8 +93,8 @@ def filter_newsletter_lines(lines, marker: str, runner: str):
     return [line for line in lines if not is_newsletter_line(line, marker, runner)]
 
 
-def anchored_schedule_from_interval(expression: str, now: datetime) -> tuple[str, str]:
-    target = now + timedelta(minutes=2)
+def anchored_schedule_from_interval(expression: str, now: datetime, offset_minutes: int = 5) -> tuple[str, str]:
+    target = now + timedelta(minutes=offset_minutes)
     match = INTERVAL_RE.match(expression)
     if not match:
         raise ValueError(f"지원하지 않는 interval 형식: {expression}")
@@ -116,15 +130,41 @@ def anchored_schedule_from_interval(expression: str, now: datetime) -> tuple[str
 
 def resolve_schedule(schedule: dict, now: datetime) -> tuple[str, str]:
     if schedule.get("mode") == "interval" and schedule.get("expression"):
-        return anchored_schedule_from_interval(schedule["expression"], now)
+        return anchored_schedule_from_interval(schedule["expression"], now, offset_minutes=5)
     if schedule.get("cron"):
         return schedule["cron"], f"사용자 지정 cron 유지: {schedule['cron']}"
     raise ValueError("유효한 schedule 설정이 없습니다")
 
 
-def build_entry(cron_schedule: str, runner: str, marker: str) -> str:
-    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
-    return f"{cron_schedule} {runner} >> {LOG_FILE} 2>&1 {marker}"
+def build_delivery_entry(cron_schedule: str, runner: str, marker: str) -> str:
+    os.makedirs(os.path.dirname(DELIVERY_LOG_FILE), exist_ok=True)
+    return (
+        f"{cron_schedule} NEWSLETTER_DELIVERY_MODE=deliver-only {runner} "
+        f">> {DELIVERY_LOG_FILE} 2>&1 {marker}"
+    )
+
+
+def build_collector_entry(now: datetime) -> str:
+    os.makedirs(os.path.dirname(COLLECT_LOG_FILE), exist_ok=True)
+    minute = now.minute
+    collector_cron = f"{minute} * * * *"
+    collect_script = os.path.join(SCRIPT_DIR, "run_collect_cycle.py")
+    marker = resolve_collector_marker()
+    return f"{collector_cron} python3 {collect_script} >> {COLLECT_LOG_FILE} 2>&1 {marker}"
+
+
+def run_immediate_collect() -> bool:
+    collect_script = os.path.join(SCRIPT_DIR, "run_collect_cycle.py")
+    os.makedirs(os.path.dirname(COLLECT_LOG_FILE), exist_ok=True)
+    with open(COLLECT_LOG_FILE, "a", encoding="utf-8") as log_file:
+        result = subprocess.run(
+            ["python3", collect_script],
+            stdout=log_file,
+            stderr=log_file,
+            text=True,
+            check=False,
+        )
+    return result.returncode == 0
 
 
 def start():
@@ -148,15 +188,21 @@ def start():
     runner = resolve_runner()
     marker = resolve_marker()
     lines = filter_newsletter_lines(read_crontab(), marker, runner)
-    lines.append(build_entry(resolved_cron, runner, marker))
+    lines.append(build_collector_entry(datetime.now()))
+    lines.append(build_delivery_entry(resolved_cron, runner, marker))
     write_crontab(lines)
+    immediate_collect_ok = run_immediate_collect()
 
-    print(f"뉴스레터가 cron에 등록되었습니다: {label}")
+    print(f"뉴스레터 cron이 등록되었습니다: {label}")
+    print("수집: 즉시 1회 실행 후 매 1시간")
     if schedule.get("mode") == "interval":
-        print("반복 기준 시각: 현재 시각 기준 2분 뒤")
-    print(f"적용 cron: {resolved_cron}")
-    print(f"설명: {resolved_desc}")
-    print(f"로그 파일: {LOG_FILE}")
+        print("전송 기준 시각: 현재 시각 기준 5분 뒤")
+    print(f"전송 cron: {resolved_cron}")
+    print(f"전송 설명: {resolved_desc}")
+    print(f"수집 로그: {COLLECT_LOG_FILE}")
+    print(f"전송 로그: {DELIVERY_LOG_FILE}")
+    if not immediate_collect_ok:
+        print("경고: 즉시 수집 1회 실행은 실패했습니다. 로그를 확인하세요.", file=sys.stderr)
     return 0
 
 
@@ -182,7 +228,10 @@ def status():
         print("등록된 뉴스레터 스케줄이 없습니다.")
         return 0
     for line in current:
-        print(line)
+        if resolve_collector_marker() in line:
+            print(f"collector: {line}")
+        else:
+            print(f"delivery: {line}")
     return 0
 
 

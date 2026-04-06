@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base_collector import fetch_rss, run_collector, format_output
 
 RSS_URL = "https://bullrich.dev/tldr-rss/ai.rss"
-MAX_NEW_ITEMS = 30
 
 
 def fetch_items():
@@ -56,7 +55,7 @@ def fetch_items():
 
 
 def collect():
-    return run_collector("tldr", fetch_items, max_new_items=MAX_NEW_ITEMS)
+    return run_collector("tldr", fetch_items)
 
 
 if __name__ == "__main__":

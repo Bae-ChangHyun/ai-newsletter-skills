@@ -15,7 +15,6 @@ Handle onboarding directly in the conversation. Do not call a separate onboardin
 2. Ask concise questions to collect:
 - platforms
 - optional Reddit subreddits
-- optional extra AI keywords
 - Telegram enabled/disabled
 - Telegram bot token and chat id if enabled
 - Threads enabled/disabled
@@ -53,7 +52,6 @@ cat __RUNTIME_ROOT__/.data/config.json
 ```
 6. Summarize in the configured language:
 - selected platforms
-- AI keywords if configured
 - Telegram enabled or disabled
 - Threads handles and RSSHub URL if configured
 - chosen schedule
@@ -67,7 +65,6 @@ Write JSON in this shape, omitting unused optional keys:
   "language": "ko",
   "platforms": ["hn", "reddit", "tldr"],
   "subreddits": ["OpenAI", "LocalLLaMA"],
-  "ai_keywords": ["agent", "open source"],
   "rsshub_url": "http://localhost:1200",
   "threads_accounts": ["claudeai", "openai"],
   "telegram": {

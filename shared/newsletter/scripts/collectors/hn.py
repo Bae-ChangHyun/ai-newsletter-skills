@@ -6,14 +6,15 @@ import time
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from base_collector import fetch_json, is_ai_related, run_collector, format_output
+from base_collector import fetch_json, get_schedule_window_hours, run_collector, format_output
 
-OUTPUT_MAX_AGE_HOURS = 2
+DEFAULT_FETCH_HOURS = 6
 
 
 def fetch_items():
     items = []
-    cutoff = time.time() - 2 * 3600
+    fetch_hours = get_schedule_window_hours(DEFAULT_FETCH_HOURS)
+    cutoff = time.time() - fetch_hours * 3600 if fetch_hours is not None else 0
     for endpoint in ["topstories", "newstories"]:
         ids = fetch_json(
             f"https://hacker-news.firebaseio.com/v0/{endpoint}.json",
@@ -34,8 +35,6 @@ def fetch_items():
             title = item.get("title", "")
             url = item.get("url", f"https://news.ycombinator.com/item?id={sid}")
             score = item.get("score", 0)
-            if not is_ai_related(title, url):
-                continue
             items.append({
                 "title": title,
                 "url": url,
@@ -55,7 +54,7 @@ def fetch_items():
 
 
 def collect():
-    return run_collector("hn", fetch_items, output_max_age_hours=OUTPUT_MAX_AGE_HOURS)
+    return run_collector("hn", fetch_items, output_max_age_hours=DEFAULT_FETCH_HOURS)
 
 
 if __name__ == "__main__":

@@ -1,205 +1,169 @@
-# AI Newsletter Skills
+<h1 align="center">AI Newsletter Skills</h1>
 
-[English](./README.md)
+<p align="center">
+  Claude Code, Codex, GitHub Copilot, OpenAI-compatible backend를 하나로 묶는 통합 AI 뉴스레터 자동화 프로젝트
+</p>
 
-## Table of Contents
+<p align="center">
+  <a href="./README.md">English</a>
+</p>
 
-- [Intro](#intro)
-- [Features](#features)
-- [Skill List](#skill-list)
-- [Quick Start](#quick-start)
-- [No-Clone Install](#no-clone-install)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Repository Layout](#repository-layout)
-- [Reinstall](#reinstall)
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude%20Code-D97706?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code" />
+  <img src="https://img.shields.io/badge/Codex-111827?style=for-the-badge&logo=openai&logoColor=white" alt="Codex" />
+  <img src="https://img.shields.io/badge/GitHub%20Copilot-0F172A?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
+  <img src="https://img.shields.io/badge/OpenAI%20Compatible-2563EB?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI-compatible" />
+</p>
 
-## Intro
+## About
 
-AI Newsletter Skills는 Claude Code와 Codex에서 같은 뉴스레터 워크플로우를 사용할 수 있게 만드는 단일 저장소입니다.
+AI Newsletter Skills는 여러 소스에서 AI 관련 뉴스를 가져오고, 눈에 띄는 중복과 노이즈를 걸러낸 뒤, 하나의 흐름으로 정리해서 전달하는 오픈소스 프로젝트입니다.
 
-수집기, Telegram 전송, delivery tracking, cron 관리는 하나의 공용 Python runtime으로 공유하고, 각 플랫폼에는 전용 skill 파일만 생성합니다.
+Hacker News, Reddit, Threads, GeekNews 같은 소스를 하루 종일 직접 확인하지 않고도, 바쁜 사람이 빠르게 훑어볼 수 있는 AI 뉴스레터 시스템을 목표로 합니다.
+
+- `newsletter-onboard`
+- `newsletter-status`
+- `newsletter-now`
+- `newsletter-start`
+- `newsletter-stop`
 
 ## Features
 
-- Claude Code와 Codex에서 동일한 스킬 이름 사용
-- 수집 로직 중복 없는 공용 runtime
-- Telegram 전송 지원
-- Threads 수집용 RSSHub 지원
-- `ingested`, `curated`, `send_failed`, `sent` 4단계 상태 관리
-- Claude/Codex 큐레이션 전에 deterministic 1차 필터 적용
-- cron 기반 자동 실행
-- 양쪽 모두 비대화형 runner 지원
-- AI 키워드 필터와 Threads 계정명을 사용자 입력으로 설정
-
-## Skill List
-
-- `newsletter-onboard`
-  - 플랫폼, Telegram, RSSHub, 주기 설정
-- `newsletter-now`
-  - 즉시 뉴스레터 수집 및 전송
-- `newsletter-start`
-  - 반복 cron 등록
-- `newsletter-stop`
-  - 등록된 cron 제거
-- `newsletter-status`
-  - 현재 저장된 설정과 실제 cron 등록 상태 확인
+- Claude Code, Codex, GitHub Copilot, OpenAI-compatible backend를 하나의 설정 흐름으로 지원
+- 온보딩, 상태 확인, 수동 실행, 자동 실행을 하나의 셸 명령 체계로 통일
+- 온보딩 중 Telegram 검증 지원
+- RSSHub 기반 Threads 연결 확인 지원
+- 기존 설정값을 다시 불러오는 재실행 가능한 온보딩
+- cron 기반의 로컬 자동 뉴스레터 실행
 
 ## Quick Start
 
-clone 없이 바로 설치할 수 있습니다:
+최신 통합 흐름은 현재 `dev` 브랜치에 있습니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
+newsletter-onboard
 ```
 
-플랫폼 하나만 설치하려면:
+만약 `newsletter-onboard`가 PATH에 안 잡히면 아래 경로로 실행하면 됩니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
+~/.ai-newsletter/bin/newsletter-onboard
 ```
 
-설치 후에는 해당 앱 또는 CLI 세션을 다시 시작해야 새 스킬이 반영됩니다.
+온보딩 후에는:
 
-일반적인 사용 순서:
+```bash
+newsletter-status
+newsletter-now
+newsletter-start
+newsletter-stop
+```
+
+## Onboarding
+
+`newsletter-onboard`는 단계형 wizard를 실행하고 아래 항목을 묻습니다.
+
+- `language`
+- `backend`
+- source platforms
+- Reddit subreddits
+- Telegram 설정
+- RSSHub URL
+- Threads handles
+- schedule
+
+다시 실행하면 기존 `config.json` 값을 기본값으로 다시 채워줍니다.
+
+<details>
+<summary><strong>Telegram 설정</strong></summary>
+
+온보딩 중에:
+
+- bot token을 Telegram `getMe`로 확인하고
+- 선택한 chat으로 인증 코드를 보내고
+- 입력한 코드가 맞아야 다음 단계로 넘어갑니다
+
+팁:
+
+- 봇 생성: `@BotFather`
+- chat id 확인: `@get_id_bot` 같은 헬퍼 봇
+
+</details>
+
+<details>
+<summary><strong>RSSHub / Threads 설정</strong></summary>
+
+온보딩 중에:
+
+- 먼저 RSSHub 연결을 `/healthz`와 base URL로 확인하고
+- 그다음 Threads handle을 RSSHub feed로 실제 검증합니다
+- RSSHub가 안 되면 재입력하거나 Threads를 끄고 계속할 수 있습니다
+
+기본 RSSHub URL:
 
 ```text
-Codex: $newsletter onboard
-Codex: $newsletter status
-Codex: $newsletter now
-Codex: $newsletter start
-Codex: $newsletter stop
-
-Claude Code: /newsletter onboard
-Claude Code: /newsletter status
-Claude Code: /newsletter now
-Claude Code: /newsletter start
-Claude Code: /newsletter stop
+http://localhost:1200
 ```
 
-## No-Clone Install
-
-이 저장소에는 독립 실행형 설치 스크립트인 [install.py](./install.py)가 들어 있습니다.
-
-동작 방식은 두 가지입니다:
-
-- Local mode
-  - repo를 checkout 한 상태에서 `python3 install.py` 실행
-- Bootstrap mode
-  - GitHub raw에서 바로 받아 `clone 없이` 설치
-
-Bootstrap 예시:
+로컬 실행 예시:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target all
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target codex
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 - --target claude
+docker run -d --name rsshub -p 1200:1200 diygod/rsshub
 ```
 
-로컬 checkout 없이 실행되면, 설치 스크립트가 GitHub tarball을 임시 디렉터리로 내려받아 기존 platform installer를 실행합니다.
+</details>
 
-## Installation
+## Commands
 
-### Codex
+| Command | 설명 |
+| --- | --- |
+| `newsletter-onboard` | 통합 설정 wizard를 실행하고 선택한 backend 연동까지 설치합니다 |
+| `newsletter-status` | 저장된 backend, language, source, 전달 설정, 현재 cron 줄을 보여줍니다 |
+| `newsletter-now` | 설정된 backend로 지금 바로 1회 뉴스레터 사이클을 실행합니다 |
+| `newsletter-start` | 설정된 backend용 반복 cron 1줄을 등록합니다 |
+| `newsletter-stop` | 뉴스레터 cron 엔트리를 제거합니다 |
 
-```bash
-python3 install.py --target codex
-# 또는
-python3 scripts/install_codex.py
-```
+## Backends
 
-설치 경로:
+<details>
+<summary><strong>Claude Code</strong></summary>
 
-- runtime: `~/.codex/skills/newsletter-runtime/`
-- skills:
-  - `~/.codex/skills/newsletter-onboard/`
-  - `~/.codex/skills/newsletter-now/`
-  - `~/.codex/skills/newsletter-start/`
-  - `~/.codex/skills/newsletter-stop/`
-  - `~/.codex/skills/newsletter-status/`
+- 설치된 `claude` CLI를 사용합니다
+- `claude -p ... --dangerously-skip-permissions`를 사용합니다
+- 온보딩 중 Claude용 newsletter skills를 설치합니다
 
-동작 메모:
+</details>
 
-- `codex exec --dangerously-bypass-approvals-and-sandbox` 사용
-- 설치 후 Codex 재시작 권장
-- 재설치해도 `.data` 안의 설정, delivery state, 로그는 유지됨
+<details>
+<summary><strong>Codex</strong></summary>
 
-### Claude Code
+- 설치된 `codex` CLI를 사용합니다
+- `codex exec --dangerously-bypass-approvals-and-sandbox`를 사용합니다
+- 온보딩 중 Codex용 newsletter skills를 설치합니다
 
-```bash
-python3 install.py --target claude
-# 또는
-python3 scripts/install_claude.py
-```
+</details>
 
-설치 경로:
+<details>
+<summary><strong>GitHub Copilot</strong></summary>
 
-- runtime: `~/.claude/skills/newsletter-runtime/`
-- skills:
-  - `~/.claude/skills/newsletter-onboard/`
-  - `~/.claude/skills/newsletter-now/`
-  - `~/.claude/skills/newsletter-start/`
-  - `~/.claude/skills/newsletter-stop/`
-  - `~/.claude/skills/newsletter-status/`
+- 온보딩 중 GitHub device-login 흐름으로 인증합니다
+- 브라우저 인증 페이지를 열고 승인을 요청합니다
+- 선택한 Copilot 모델로 config 생성과 편집 실행을 처리합니다
 
-동작 메모:
+</details>
 
-- `claude -p ... --dangerously-skip-permissions` 사용
-- 설치 후 Claude Code 재시작 권장
-- 재설치해도 `.data` 안의 설정, delivery state, 로그는 유지됨
+<details>
+<summary><strong>OpenAI-compatible</strong></summary>
 
-## Usage
+- `base_url`, `model`, `api_key_env`를 직접 입력합니다
+- generic `/chat/completions` endpoint를 호출합니다
 
-`newsletter-onboard`에서 설정하는 항목:
+</details>
 
-- 우선 출력 언어
-- 수집 플랫폼
-- 선택적 AI 키워드 필터
-- Telegram bot token / chat id
-- Threads용 RSSHub URL
-- `@` 없는 Threads 계정명
-- 반복 실행 주기
+## Notes
 
-RSSHub 동작:
-
-- 기본 URL: `http://localhost:1200`
-- 먼저 `/healthz` 확인
-- 실패 시 `/`도 한 번 더 확인
-- 연결이 안 되면 `threads`를 자동으로 비활성화
-
-스케줄 동작:
-
-- `newsletter-start`는 사용자가 입력한 cron 한 줄만 등록
-- `newsletter-status`는 저장된 설정과 현재 cron 줄을 함께 보여줌
-
-전송 동작:
-
-- 항목은 `ingested -> curated -> send_failed -> sent` 흐름으로 이동
-- `send_failed` 항목은 새 후보보다 먼저 재시도
-- exact URL/title dedupe와 저비용 노이즈 필터를 먼저 적용
-- 온보딩, status 응답, 뉴스레터 제목 번역은 설정한 언어를 따름
-- Telegram 전송 또는 터미널 출력이 성공한 뒤에만 delivered 처리
-
-## Repository Layout
-
-- `shared/newsletter/`
-  - 공용 Python runtime, collectors, prompts, delivery-state logic
-- `targets/codex/templates/`
-  - Codex skill 템플릿과 Codex runner 템플릿
-- `targets/claude/templates/`
-  - Claude skill 템플릿, Claude runner 템플릿, Claude subagent 템플릿
-- `scripts/`
-  - 플랫폼별 설치 스크립트
-
-## Reinstall
-
-이 저장소를 수정한 뒤에는 설치 스크립트를 다시 실행하면 됩니다:
-
-```bash
-python3 install.py --target all
-python3 scripts/install_codex.py
-python3 scripts/install_claude.py
-```
-
-기존 runtime의 `.data` 상태는 재설치 과정에서 보존됩니다.
+- 온보딩을 다시 실행하면 기존 config 값이 기본값으로 재사용됩니다
+- 실제 저장 상태를 보려면 `newsletter-status`가 가장 빠릅니다
+- cron을 켜기 전에는 `newsletter-now`로 먼저 1회 테스트하는 게 안전합니다
+- 현재 통합 흐름은 `dev` 브랜치 기준입니다

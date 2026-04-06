@@ -9,9 +9,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base_collector import fetch_rss, run_collector, format_output
 
 RSSHUB_BASE = os.environ.get("RSSHUB_URL", "http://localhost:1200")
-OUTPUT_MAX_AGE_HOURS = 24
-
-
 def fetch_items(accounts=None):
     if not accounts:
         print("# WARN: no threads accounts configured", file=sys.stderr)
@@ -53,11 +50,7 @@ def collect(accounts=None, rsshub_url=None):
     if rsshub_url:
         global RSSHUB_BASE
         RSSHUB_BASE = rsshub_url
-    return run_collector(
-        "threads",
-        lambda: fetch_items(accounts),
-        output_max_age_hours=OUTPUT_MAX_AGE_HOURS,
-    )
+    return run_collector("threads", lambda: fetch_items(accounts))
 
 
 if __name__ == "__main__":

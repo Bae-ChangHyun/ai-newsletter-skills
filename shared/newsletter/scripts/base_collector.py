@@ -29,20 +29,7 @@ TRACKING_QUERY_KEYS = {
     "spm",
 }
 
-DEFAULT_AI_KEYWORDS = [
-    "ai", "llm", "gpt", "claude", "anthropic", "openai", "gemini", "mistral",
-    "llama", "qwen", "deepseek", "copilot", "chatgpt", "transformer", "diffusion",
-    "stable diffusion", "midjourney", "dall-e", "sora", "neural", "machine learning",
-    "deep learning", "langchain", "llamaindex", "hugging face", "huggingface",
-    "nvidia", "cuda", "gpu", "rag", "vector", "embedding", "fine-tune", "finetune",
-    "lora", "qlora", "quantiz", "gguf", "ggml", "ollama", "vllm", "mlx",
-    "agent", "mcp", "tool use", "function calling", "reasoning", "chain of thought",
-    "benchmark", "eval", "arxiv", "paper", "model", "inference", "training",
-    "open source", "opensource", "open-source", "foundation model", "multimodal",
-    "vision", "speech", "tts", "stt", "whisper", "grok", "xai", "cohere",
-    "meta ai", "gemma", "phi", "openclaw", "cursor", "windsurf", "aider",
-    "coding agent", "code generation", "robotics", "autonomous", "self-driving",
-]
+INTERVAL_RE = re.compile(r"^\s*(\d+)\s*([mhd])\s*$")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", ".data")
@@ -58,20 +45,31 @@ def load_runtime_config():
         return {}
 
 
-def get_ai_keywords():
+def get_schedule_window_hours(default_hours=None, grace_minutes=15):
     config = load_runtime_config()
-    extra_keywords = config.get("ai_keywords", [])
-    merged = []
-    for keyword in DEFAULT_AI_KEYWORDS + extra_keywords:
-        normalized = keyword.strip().lower()
-        if normalized and normalized not in merged:
-            merged.append(normalized)
-    return merged
+    schedule = config.get("schedule") or {}
+    if schedule.get("cron"):
+        return None
+    if schedule.get("mode") != "interval":
+        return default_hours
 
+    expression = (schedule.get("expression") or "").strip().lower()
+    match = INTERVAL_RE.match(expression)
+    if not match:
+        return default_hours
 
-def is_ai_related(title, url=""):
-    text = (title + " " + url).lower()
-    return any(kw in text for kw in get_ai_keywords())
+    value = int(match.group(1))
+    unit = match.group(2)
+    if unit == "m":
+        base_hours = value / 60
+    elif unit == "h":
+        base_hours = value
+    elif unit == "d":
+        base_hours = value * 24
+    else:
+        return default_hours
+
+    return base_hours + (grace_minutes / 60)
 
 
 def canonicalize_url(url):
@@ -259,9 +257,14 @@ def run_collector(platform, fetch_fn, output_max_age_hours=None, max_new_items=N
         elif state == STATE_INGESTED:
             fresh_items.append(entry)
 
-    if output_max_age_hours is not None:
-        output_cutoff = time.time() - output_max_age_hours * 3600
-        fresh_items = [i for i in fresh_items if i.get("time", 0) > output_cutoff]
+    resolved_output_max_age_hours = get_schedule_window_hours(output_max_age_hours)
+
+    if resolved_output_max_age_hours is not None:
+        output_cutoff = time.time() - resolved_output_max_age_hours * 3600
+        fresh_items = [
+            i for i in fresh_items
+            if i.get("time", 0) == 0 or i.get("time", 0) > output_cutoff
+        ]
     elif max_new_items is not None:
         fresh_items = fresh_items[:max_new_items]
 
@@ -288,10 +291,16 @@ def run_collector(platform, fetch_fn, output_max_age_hours=None, max_new_items=N
         for state in [STATE_INGESTED, STATE_CURATED, STATE_SEND_FAILED, STATE_SENT]
     }
     print(
-        "# Seen: "
-        f"{len(seen)} total, {new_count} new, {pending_count} pending, {len(output_items)} output "
-        f"(ingested={state_counts[STATE_INGESTED]}, curated={state_counts[STATE_CURATED]}, "
-        f"send_failed={state_counts[STATE_SEND_FAILED]}, sent={state_counts[STATE_SENT]})",
+        "COLLECT_STATE "
+        f"platform={platform} "
+        f"seen_total={len(seen)} "
+        f"new={new_count} "
+        f"pending={pending_count} "
+        f"output={len(output_items)} "
+        f"ingested={state_counts[STATE_INGESTED]} "
+        f"curated={state_counts[STATE_CURATED]} "
+        f"send_failed={state_counts[STATE_SEND_FAILED]} "
+        f"sent={state_counts[STATE_SENT]}",
         file=sys.stderr,
     )
     return output_items
@@ -304,7 +313,7 @@ def fetch_json(url, user_agent="openclaw/1.0", timeout=10):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except Exception as e:
-        print(f"# WARN: fetch failed {url}: {e}", file=sys.stderr)
+        print(f"WARN fetch_json url={url} error={e}", file=sys.stderr)
         return None
 
 
@@ -315,7 +324,7 @@ def fetch_html(url, user_agent="Mozilla/5.0", timeout=10):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read().decode("utf-8", errors="replace")
     except Exception as e:
-        print(f"# WARN: fetch failed {url}: {e}", file=sys.stderr)
+        print(f"WARN fetch_html url={url} error={e}", file=sys.stderr)
         return None
 
 
@@ -327,5 +336,5 @@ def fetch_rss(url, user_agent="openclaw/1.0", timeout=15):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return ET.parse(resp)
     except Exception as e:
-        print(f"# WARN: RSS fetch failed {url}: {e}", file=sys.stderr)
+        print(f"WARN fetch_rss url={url} error={e}", file=sys.stderr)
         return None

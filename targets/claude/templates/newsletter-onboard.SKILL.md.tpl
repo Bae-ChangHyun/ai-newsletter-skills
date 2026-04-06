@@ -24,7 +24,6 @@ allowedTools:
 2. AskUserQuestion 또는 대화형 질문으로 아래를 수집한다.
 - 플랫폼
 - Reddit 서브레딧
-- 추가 AI 키워드
 - Telegram 사용 여부
 - Telegram bot token / chat id
 - Threads 사용 여부
@@ -76,7 +75,6 @@ cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
   "language": "ko",
   "platforms": ["hn", "reddit", "tldr"],
   "subreddits": ["OpenAI", "LocalLLaMA"],
-  "ai_keywords": ["agent", "open source"],
   "rsshub_url": "http://localhost:1200",
   "threads_accounts": ["claudeai", "openai"],
   "telegram": {
