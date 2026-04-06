@@ -74,6 +74,7 @@ const COPILOT_PREMIUM_MULTIPLIERS = {
   "claude-sonnet-4.6": "1",
   "gemini-2.5-pro": "1",
   "gemini-3-flash": "0.33",
+  "gemini-3-flash-preview": "0.33",
   "gemini-3-pro": "1",
   "gemini-3.1-pro-preview": "1",
   "gpt-4.1": "0",
@@ -89,18 +90,36 @@ const COPILOT_PREMIUM_MULTIPLIERS = {
   "gpt-5.4": "1",
   "gpt-5.4-mini": "0.33",
   "grok-code-fast-1": "0.25",
+  "oswe-vscode-prime": "0",
+  "oswe-vscode-secondary": "0",
   "raptor-mini": "0",
 };
 const COPILOT_MODELS = [
-  { value: "claude-sonnet-4.6", label: "claude-sonnet-4.6" },
-  { value: "claude-sonnet-4.5", label: "claude-sonnet-4.5" },
-  { value: "gpt-4o", label: "gpt-4o" },
-  { value: "gpt-4.1", label: "gpt-4.1" },
-  { value: "gpt-4.1-mini", label: "gpt-4.1-mini" },
-  { value: "gpt-4.1-nano", label: "gpt-4.1-nano" },
-  { value: "o1", label: "o1" },
-  { value: "o1-mini", label: "o1-mini" },
-  { value: "o3-mini", label: "o3-mini" },
+  { value: "claude-haiku-4.5", label: "Claude Haiku 4.5" },
+  { value: "claude-opus-4.5", label: "Claude Opus 4.5" },
+  { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
+  { value: "claude-opus-4.6-fast", label: "Claude Opus 4.6 (fast mode)" },
+  { value: "claude-sonnet-4", label: "Claude Sonnet 4" },
+  { value: "claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+  { value: "claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash (Preview)" },
+  { value: "gemini-3-pro", label: "Gemini 3 Pro" },
+  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview)" },
+  { value: "gpt-4.1", label: "GPT-4.1" },
+  { value: "gpt-4o", label: "GPT-4o" },
+  { value: "gpt-5-mini", label: "GPT-5 mini" },
+  { value: "gpt-5.1", label: "GPT-5.1" },
+  { value: "gpt-5.1-codex", label: "GPT-5.1-Codex" },
+  { value: "gpt-5.1-codex-mini", label: "GPT-5.1-Codex-Mini" },
+  { value: "gpt-5.1-codex-max", label: "GPT-5.1-Codex-Max" },
+  { value: "gpt-5.2", label: "GPT-5.2" },
+  { value: "gpt-5.2-codex", label: "GPT-5.2-Codex" },
+  { value: "gpt-5.3-codex", label: "GPT-5.3-Codex" },
+  { value: "gpt-5.4", label: "GPT-5.4" },
+  { value: "gpt-5.4-mini", label: "GPT-5.4 mini" },
+  { value: "grok-code-fast-1", label: "Grok Code Fast 1" },
+  { value: "raptor-mini", label: "Raptor mini (Preview)" },
 ];
 
 function loadExistingConfig() {
@@ -471,6 +490,10 @@ function saveCopilotApiTokenCache(token, expiresAt) {
 }
 
 function resolveCopilotPremiumMultiplier(item) {
+  const apiMultiplier = item?.billing?.multiplier;
+  if (apiMultiplier !== undefined && apiMultiplier !== null && String(apiMultiplier).trim()) {
+    return String(apiMultiplier).trim().replace(/[xX]$/, "");
+  }
   const candidates = [
     String(item?.id || "").trim().toLowerCase(),
     String(item?.value || "").trim().toLowerCase(),
@@ -619,28 +642,33 @@ async function fetchCopilotModels(runtimeAuth) {
   }
   const data = await response.json();
   const items = Array.isArray(data?.data) ? data.data : [];
-  return items
+  const chatModels = items
     .filter((item) => {
       const modelType = String(item?.capabilities?.type || "").trim().toLowerCase();
       const endpoints = Array.isArray(item?.supported_endpoints) ? item.supported_endpoints : [];
       if (modelType && modelType !== "chat") return false;
       if (endpoints.length === 0) return true;
       return endpoints.some((endpoint) => String(endpoint || "").toLowerCase().includes("chat"));
-    })
+    });
+  const pickerModels = chatModels.filter((item) => item?.model_picker_enabled === true);
+  const selectedModels = pickerModels.length > 0 ? pickerModels : chatModels;
+  const seen = new Set();
+  return selectedModels
     .map((item) => {
       const hints = [];
       const id = String(item?.id || "").trim();
+      if (!id || seen.has(id)) return null;
+      seen.add(id);
       if (id) hints.push(id);
       if (item?.vendor) hints.push(String(item.vendor));
       if (item?.preview) hints.push("preview");
-      if (item?.model_picker_enabled === true) hints.push("available");
       return {
         value: id,
         label: formatCopilotModelLabel(item),
         hint: hints.join(" · ") || undefined,
       };
     })
-    .filter((item) => item.value);
+    .filter((item) => item?.value);
 }
 
 async function resolveCopilotRuntimeAuth(githubToken) {
@@ -1107,7 +1135,8 @@ async function runWizard() {
         ];
         await note(
           [
-            "Model multipliers follow GitHub's premium request docs.",
+            "Model list follows GitHub Copilot picker metadata when available.",
+            "Multiplier labels prefer live Copilot metadata and fall back to GitHub's premium request docs.",
             `Reference: ${COPILOT_REQUESTS_DOCS_URL}`,
           ].join("\n"),
           "GitHub Copilot Models",
