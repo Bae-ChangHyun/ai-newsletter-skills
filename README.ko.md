@@ -1,112 +1,194 @@
-<h1 align="center">AI Newsletter Skills</h1>
+<div align="center">
 
-<p align="center">
-  Claude Code, Codex, GitHub Copilot, OpenAI-compatible backend를 하나로 묶는 통합 AI 뉴스레터 자동화 프로젝트
-</p>
+# AI Newsletter Skills
 
-<p align="center">
-  <a href="./README.md">English</a>
-</p>
+**큐레이팅된 AI 뉴스를, 원하는 AI 에이전트로, 자동으로 받아보세요.**
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Claude%20Code-D97706?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code" />
-  <img src="https://img.shields.io/badge/Codex-111827?style=for-the-badge&logo=openai&logoColor=white" alt="Codex" />
-  <img src="https://img.shields.io/badge/GitHub%20Copilot-0F172A?style=for-the-badge&logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
-  <img src="https://img.shields.io/badge/OpenAI%20Compatible-2563EB?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI-compatible" />
-</p>
+7개 소스에서 수집. AI로 노이즈 제거. 텔레그램으로 다이제스트 전달 — 모두 CLI 하나로.
 
-## About
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Stars](https://img.shields.io/github/stars/Bae-ChangHyun/ai-newsletter-skills?style=flat-square&color=f9c74f)](https://github.com/Bae-ChangHyun/ai-newsletter-skills/stargazers)
+[![Issues](https://img.shields.io/github/issues/Bae-ChangHyun/ai-newsletter-skills?style=flat-square&color=ef476f)](https://github.com/Bae-ChangHyun/ai-newsletter-skills/issues)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-D97706?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
+[![Codex](https://img.shields.io/badge/Codex-111827?style=flat-square&logo=openai&logoColor=white)](https://openai.com/codex)
+[![GitHub Copilot](https://img.shields.io/badge/GitHub%20Copilot-0F172A?style=flat-square&logo=githubcopilot&logoColor=white)](https://github.com/features/copilot)
+[![OpenAI Compatible](https://img.shields.io/badge/OpenAI%20Compatible-2563EB?style=flat-square&logo=openai&logoColor=white)](https://platform.openai.com/)
 
-AI Newsletter Skills는 여러 소스에서 AI 관련 뉴스를 가져오고, 눈에 띄는 중복과 노이즈를 걸러낸 뒤, 하나의 흐름으로 정리해서 전달하는 오픈소스 프로젝트입니다.
+[English](./README.md)
 
-Hacker News, Reddit, Threads, GeekNews 같은 소스를 하루 종일 직접 확인하지 않고도, 바쁜 사람이 빠르게 훑어볼 수 있는 AI 뉴스레터 시스템을 목표로 합니다.
+</div>
 
-- `newsletter-onboard`
-- `newsletter-status`
-- `newsletter-now`
-- `newsletter-start`
-- `newsletter-stop`
+---
 
-## Features
+## 목차
 
-- Claude Code, Codex, GitHub Copilot, OpenAI-compatible backend를 하나의 설정 흐름으로 지원
-- 온보딩, 상태 확인, 수동 실행, 자동 실행을 하나의 셸 명령 체계로 통일
-- 온보딩 중 Telegram 검증 지원
-- RSSHub 기반 Threads 연결 확인 지원
-- 기존 설정값을 다시 불러오는 재실행 가능한 온보딩
-- cron 기반의 로컬 자동 뉴스레터 실행
+- [이 프로젝트를 만든 이유](#-이-프로젝트를-만든-이유)
+- [작동 방식](#-작동-방식)
+- [주요 기능](#-주요-기능)
+- [빠른 시작](#-빠른-시작)
+- [명령어](#-명령어)
+- [온보딩 Wizard](#-온보딩-wizard)
+- [AI 엔진](#-ai-엔진)
+- [뉴스 소스](#-뉴스-소스)
+- [라이선스](#-라이선스)
 
-## Quick Start
+---
 
-최신 통합 흐름은 현재 `dev` 브랜치에 있습니다.
+## 이 프로젝트를 만든 이유
+
+AI 트렌드를 따라가는 것 자체가 풀타임 작업입니다.
+
+매일 새로운 논문, 도구, GitHub 저장소, 커뮤니티 글이 Hacker News, Reddit, Threads, 그리고 수많은 포럼에 쏟아집니다. 이걸 전부 직접 확인하기엔 대부분의 개발자에게 시간이 부족합니다.
+
+**AI Newsletter Skills는 이 전체 파이프라인을 자동화합니다:**
+
+- 7개 큐레이팅된 소스에서 스케줄에 맞춰 수집
+- 선호하는 AI 엔진으로 노이즈를 걸러내고 중요한 것만 요약
+- 깔끔한 다이제스트를 텔레그램으로 전달 — 외부 서비스 없음, 구독 없음
+
+---
+
+## 작동 방식
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      뉴스 소스 (7개)                         │
+│  Hacker News · Reddit · Threads · GeekNews                  │
+│  DevDay · TLDR · Velopers                                   │
+└──────────────────────┬──────────────────────────────────────┘
+                       │  수집
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    수집기 (Python)                           │
+│       Fetch → 중복 제거 → 정규화                              │
+└──────────────────────┬──────────────────────────────────────┘
+                       │  원본 항목
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  AI 엔진 (선택 가능)                          │
+│   Claude Code  │  Codex  │  GitHub Copilot  │  OpenAI API   │
+│   노이즈 필터 · 관련성 점수화 · 다이제스트 작성                  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │  큐레이팅된 다이제스트
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Telegram 전달                             │
+│         Bot API → 설정한 채팅 또는 그룹 채널                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 주요 기능
+
+- **한 줄 설치** — `curl | python3` 한 줄이면 모든 준비 완료
+- **대화형 온보딩 wizard** — 실시간 검증과 재실행 가능한 설정을 갖춘 안내형 셋업
+- **4개 AI 엔진** — Claude Code, Codex, GitHub Copilot, 그리고 모든 OpenAI-compatible 엔드포인트
+- **7개 뉴스 소스** — Hacker News, Reddit, Threads (RSSHub 경유), GeekNews, DevDay, TLDR, Velopers
+- **Telegram 전달** — 온보딩 중 봇 토큰 검증 및 채팅 ID 확인
+- **RSSHub 연동** — 헬스 체크된 Threads 수집과 우아한 fallback
+- **cron 기반 스케줄링** — 명령어 하나로 반복 실행 등록 및 제거
+- **설정 보존** — 온보딩을 다시 실행하면 이전 값을 기본값으로 불러옴
+- **5개 셸 명령어** — 각 작업에 하나씩: onboard, status, now, start, stop
+
+---
+
+## 빠른 시작
+
+> 통합 온보딩 흐름은 현재 `dev` 브랜치에 있습니다.
+
+**1단계 — 설치**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
+```
+
+**2단계 — Wizard 실행**
+
+```bash
 newsletter-onboard
 ```
 
-만약 `newsletter-onboard`가 PATH에 안 잡히면 아래 경로로 실행하면 됩니다.
+> `newsletter-onboard`가 `PATH`에 없다면:
+> ```bash
+> ~/.ai-newsletter/bin/newsletter-onboard
+> ```
+
+**3단계 — 확인 및 실행**
 
 ```bash
-~/.ai-newsletter/bin/newsletter-onboard
+newsletter-status   # 저장된 설정 확인
+newsletter-now      # 다이제스트 즉시 1회 전송
+newsletter-start    # 반복 cron 스케줄 활성화
 ```
 
-온보딩 후에는:
+끝입니다. 설정한 스케줄에 따라 텔레그램으로 큐레이팅된 AI 뉴스가 도착합니다.
 
-```bash
-newsletter-status
-newsletter-now
-newsletter-start
-newsletter-stop
-```
+---
 
-## Onboarding
+## 명령어
 
-`newsletter-onboard`는 단계형 wizard를 실행하고 아래 항목을 묻습니다.
+| 명령어 | 설명 |
+| --- | --- |
+| `newsletter-onboard` | 안내형 설정 wizard를 실행하고 선택한 AI 엔진 연동을 설치 |
+| `newsletter-status` | AI 엔진, 언어, 소스, 전달 설정, 활성 cron 줄을 표시 |
+| `newsletter-now` | 설정된 AI 엔진으로 뉴스레터 사이클 1회 즉시 실행 |
+| `newsletter-start` | 설정된 AI 엔진용 반복 cron 엔트리 1줄 등록 |
+| `newsletter-stop` | 뉴스레터 cron 엔트리 제거 |
 
-- `language`
-- `backend`
-- source platforms
-- Reddit subreddits
-- Telegram 설정
-- RSSHub URL
-- Threads handles
-- schedule
+---
 
-다시 실행하면 기존 `config.json` 값을 기본값으로 다시 채워줍니다.
+## 온보딩 Wizard
+
+`newsletter-onboard`는 모든 설정을 대화형으로 안내합니다:
+
+| 프롬프트 | 설정 항목 |
+| --- | --- |
+| Language | 다이제스트 출력 언어 |
+| AI Engine | 편집 단계를 실행할 AI 에이전트 |
+| Sources | 수집할 플랫폼 |
+| Subreddits | 모니터링할 Reddit 커뮤니티 |
+| Telegram bot token | 전달 엔드포인트 (`getMe`로 실시간 검증) |
+| Telegram chat ID | 대상 채팅 또는 그룹 |
+| RSSHub URL | Threads 수집용 base URL |
+| Threads handles | RSSHub로 팔로우할 계정 |
+| Schedule | 반복 전달용 cron 표현식 |
+
+`newsletter-onboard`를 다시 실행하면 기존 `config.json` 값을 기본값으로 불러옵니다 — 직접 변경하지 않는 한 아무것도 사라지지 않습니다.
 
 <details>
-<summary><strong>Telegram 설정</strong></summary>
+<summary><strong>Telegram 설정 상세</strong></summary>
 
 온보딩 중에:
 
-- bot token을 Telegram `getMe`로 확인하고
-- 선택한 chat으로 인증 코드를 보내고
-- 입력한 코드가 맞아야 다음 단계로 넘어갑니다
+- 봇 토큰을 Telegram `getMe` API로 확인합니다
+- 선택한 채팅으로 인증 코드를 전송합니다
+- 입력한 코드가 일치해야 다음 단계로 넘어갑니다
 
 팁:
 
-- 봇 생성: `@BotFather`
-- chat id 확인: `@get_id_bot` 같은 헬퍼 봇
+- Telegram에서 `@BotFather`로 봇 생성
+- `@get_id_bot` 같은 헬퍼로 대상 채팅 ID 확인
 
 </details>
 
 <details>
-<summary><strong>RSSHub / Threads 설정</strong></summary>
+<summary><strong>RSSHub / Threads 설정 상세</strong></summary>
 
 온보딩 중에:
 
-- 먼저 RSSHub 연결을 `/healthz`와 base URL로 확인하고
-- 그다음 Threads handle을 RSSHub feed로 실제 검증합니다
-- RSSHub가 안 되면 재입력하거나 Threads를 끄고 계속할 수 있습니다
+- RSSHub를 `/healthz`, 이어서 base URL로 헬스 체크합니다
+- Threads handle을 실제 RSSHub feed로 검증합니다
+- RSSHub가 응답하지 않으면 재시도하거나 Threads 수집을 비활성화하고 계속할 수 있습니다
 
 기본 RSSHub URL:
 
-```text
+```
 http://localhost:1200
 ```
 
-로컬 실행 예시:
+Docker로 RSSHub 로컬 실행:
 
 ```bash
 docker run -d --name rsshub -p 1200:1200 diygod/rsshub
@@ -114,56 +196,74 @@ docker run -d --name rsshub -p 1200:1200 diygod/rsshub
 
 </details>
 
-## Commands
+---
 
-| Command | 설명 |
-| --- | --- |
-| `newsletter-onboard` | 통합 설정 wizard를 실행하고 선택한 backend 연동까지 설치합니다 |
-| `newsletter-status` | 저장된 backend, language, source, 전달 설정, 현재 cron 줄을 보여줍니다 |
-| `newsletter-now` | 설정된 backend로 지금 바로 1회 뉴스레터 사이클을 실행합니다 |
-| `newsletter-start` | 설정된 backend용 반복 cron 1줄을 등록합니다 |
-| `newsletter-stop` | 뉴스레터 cron 엔트리를 제거합니다 |
-
-## Backends
+## AI 엔진
 
 <details>
 <summary><strong>Claude Code</strong></summary>
 
-- 설치된 `claude` CLI를 사용합니다
-- `claude -p ... --dangerously-skip-permissions`를 사용합니다
-- 온보딩 중 Claude용 newsletter skills를 설치합니다
+- `claude` CLI가 설치되어 있고 인증된 상태여야 합니다
+- 헤드리스 실행을 위해 `claude -p ... --dangerously-skip-permissions`를 사용합니다
+- 온보딩 중 Claude용 newsletter skill 템플릿을 자동 설치합니다
 
 </details>
 
 <details>
 <summary><strong>Codex</strong></summary>
 
-- 설치된 `codex` CLI를 사용합니다
+- `codex` CLI가 설치되어 있고 인증된 상태여야 합니다
 - `codex exec --dangerously-bypass-approvals-and-sandbox`를 사용합니다
-- 온보딩 중 Codex용 newsletter skills를 설치합니다
+- 온보딩 중 Codex용 skill 템플릿을 자동 설치합니다
 
 </details>
 
 <details>
 <summary><strong>GitHub Copilot</strong></summary>
 
-- 온보딩 중 GitHub device-login 흐름으로 인증합니다
-- 브라우저 인증 페이지를 열고 승인을 요청합니다
-- 선택한 Copilot 모델로 config 생성과 편집 실행을 처리합니다
+- 온보딩 중 공식 GitHub device-login OAuth 흐름을 사용합니다
+- 브라우저 인증 페이지를 열고 승인을 기다립니다
+- 선택한 Copilot 모델로 config 생성 및 편집 실행을 처리합니다
 
 </details>
 
 <details>
 <summary><strong>OpenAI-compatible</strong></summary>
 
-- `base_url`, `model`, `api_key_env`를 직접 입력합니다
-- generic `/chat/completions` endpoint를 호출합니다
+- 온보딩 중 `base_url`, `model`, `api_key_env`를 입력합니다
+- 표준 `/chat/completions` 엔드포인트를 호출합니다
+- OpenAI API 호환 프로바이더라면 어디든 사용 가능 (Groq, Together, 로컬 Ollama 등)
 
 </details>
 
-## Notes
+---
 
-- 온보딩을 다시 실행하면 기존 config 값이 기본값으로 재사용됩니다
-- 실제 저장 상태를 보려면 `newsletter-status`가 가장 빠릅니다
-- cron을 켜기 전에는 `newsletter-now`로 먼저 1회 테스트하는 게 안전합니다
-- 현재 통합 흐름은 `dev` 브랜치 기준입니다
+## 뉴스 소스
+
+| 소스 | 수집 범위 |
+| --- | --- |
+| Hacker News | AI 및 기술 분야 상위 게시글 |
+| Reddit | 설정 가능한 subreddit (예: r/MachineLearning, r/LocalLLaMA) |
+| Threads | RSSHub feed를 통한 계정 수집 |
+| GeekNews | 한국 기술 커뮤니티 게시글 |
+| DevDay | 개발자 중심 AI 발표 소식 |
+| TLDR | 큐레이팅된 기술 뉴스레터 |
+| Velopers | 한국 개발자 커뮤니티 |
+
+---
+
+## 라이선스
+
+[MIT License](LICENSE)로 배포됩니다.
+
+---
+
+<div align="center">
+
+[Bae-ChangHyun](https://github.com/Bae-ChangHyun)과 기여자들이 만들었습니다.
+
+이 프로젝트가 시간을 아껴줬다면 스타를 눌러주세요.
+
+[![GitHub Stars](https://img.shields.io/github/stars/Bae-ChangHyun/ai-newsletter-skills?style=social)](https://github.com/Bae-ChangHyun/ai-newsletter-skills/stargazers)
+
+</div>
