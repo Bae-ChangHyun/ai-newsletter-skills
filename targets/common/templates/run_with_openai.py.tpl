@@ -58,6 +58,39 @@ def build_user_prompt(config: dict, candidates: dict) -> str:
     )
 
 
+def strip_json_response(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+    return stripped
+
+
+def extract_text_content(content) -> str:
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return str(content or "")
+
+
+def validate_editor_result(payload: dict) -> dict:
+    if not isinstance(payload, dict):
+        raise RuntimeError("OpenAI-compatible response must be a JSON object")
+    summary = payload.get("summary")
+    messages = payload.get("messages")
+    selected = payload.get("selected")
+    if summary is not None and not isinstance(summary, str):
+        raise RuntimeError("Editor result.summary must be a string")
+    if messages is not None and not isinstance(messages, list):
+        raise RuntimeError("Editor result.messages must be a list")
+    if selected is not None and not isinstance(selected, dict):
+        raise RuntimeError("Editor result.selected must be an object")
+    return payload
+
+
 def chat_endpoint(base_url: str) -> str:
     base_url = base_url.rstrip("/")
     if base_url.endswith("/chat/completions"):
@@ -102,10 +135,8 @@ def call_openai_compatible(config: dict, candidates: dict) -> dict:
     except urllib.error.URLError as exc:
         raise RuntimeError(f"OpenAI-compatible API request failed: {exc}") from exc
 
-    content = data["choices"][0]["message"]["content"]
-    if isinstance(content, list):
-        content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
-    return json.loads(content)
+    content = extract_text_content(data["choices"][0]["message"]["content"])
+    return validate_editor_result(json.loads(strip_json_response(content)))
 
 
 def run_collect() -> dict:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +14,10 @@ def ensure_clack(home_root: Path) -> None:
     node_modules = home_root / "node_modules" / "@clack" / "prompts"
     if node_modules.exists():
         return
+    if shutil.which("node") is None:
+        raise RuntimeError("node is required to run newsletter-onboard")
+    if shutil.which("npm") is None:
+        raise RuntimeError("npm is required to install @clack/prompts for newsletter-onboard")
     subprocess.run(
         [
             "npm",
