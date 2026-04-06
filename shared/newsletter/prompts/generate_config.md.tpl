@@ -26,6 +26,7 @@ Requirements:
     }
   }
 - Omit optional keys when they are empty.
+- Supported `platforms` values are: `hn`, `reddit`, `geeknews`, `tldr`, `devday`, `velopers`, `threads`.
 - Keep `backend.settings` exactly aligned with the selected backend:
   - `claude`: empty object
   - `codex`: empty object
@@ -33,5 +34,6 @@ Requirements:
   - `openai`: include `base_url`, `model`, and `api_key_env`
 - If Threads was disabled or RSSHub failed, omit `threads_accounts` and `rsshub_url`.
 - Keep `telegram.enabled` even when Telegram is disabled.
+- When `telegram.enabled` is `false`, omit empty `bot_token` and `chat_id`.
 - Keep the user's chosen language and schedule.
 - Do not add explanations, markdown fences, or commentary.

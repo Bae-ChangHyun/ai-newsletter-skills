@@ -30,7 +30,7 @@ const DEFAULT_GITHUB_COPILOT_API_BASE_URL = "https://api.individual.githubcopilo
 const COPILOT_IDE_USER_AGENT = "GitHubCopilotChat/0.26.7";
 const COPILOT_EDITOR_VERSION = "vscode/1.96.2";
 const COPILOT_REQUESTS_DOCS_URL = "https://docs.github.com/en/copilot/concepts/billing/copilot-requests";
-const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr"];
+const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr", "devday", "velopers"];
 const DEFAULT_SUBREDDITS = [
   "Anthropic",
   "ArtificialInteligence",
@@ -53,11 +53,18 @@ const BACKENDS = [
   { value: "openai", label: "OpenAI-compatible API" },
 ];
 
+const DELIVERY_OPTIONS = [
+  { value: "telegram", label: "Telegram" },
+  { value: "terminal", label: "Terminal only (preview / local runs)" },
+];
+
 const PLATFORM_OPTIONS = [
   { value: "hn", label: "Hacker News" },
   { value: "reddit", label: "Reddit" },
   { value: "geeknews", label: "GeekNews" },
   { value: "tldr", label: "TLDR" },
+  { value: "devday", label: "DevDay" },
+  { value: "velopers", label: "Velopers" },
   { value: "threads", label: "Threads via RSSHub" },
 ];
 
@@ -228,13 +235,16 @@ function buildGenerationPrompt(answers) {
 }
 
 function buildAnswers(state) {
+  const telegram = { enabled: Boolean(state.telegram?.enabled) };
+  if (telegram.enabled && state.telegram?.bot_token) telegram.bot_token = state.telegram.bot_token;
+  if (telegram.enabled && state.telegram?.chat_id) telegram.chat_id = state.telegram.chat_id;
   return {
     language: state.language,
     backend: state.backend,
     backend_settings: state.backendSettings,
     platforms: state.platforms,
     subreddits: state.subreddits,
-    telegram: { ...state.telegram, enabled: true },
+    telegram,
     schedule: state.schedule,
     rsshub_url: state.rsshubUrl ?? undefined,
     threads_accounts: state.threadsAccounts ?? [],
@@ -254,9 +264,28 @@ function validateRequired(label, value) {
 function validateSchedule(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "Schedule is required";
-  if (/^\d+\s*[mhd]$/.test(trimmed)) return undefined;
+  const intervalMatch = trimmed.match(/^(\d+)\s*([mhd])$/);
+  if (intervalMatch) {
+    const amount = Number.parseInt(intervalMatch[1], 10);
+    const unit = intervalMatch[2];
+    if (amount <= 0) return "Interval must be greater than zero";
+    if (unit === "m") {
+      return 60 % amount === 0
+        ? undefined
+        : "Supported minute intervals must divide evenly into 60 (e.g. 5m, 10m, 15m, 30m)";
+    }
+    if (unit === "h") {
+      if (amount === 24) return undefined;
+      return 24 % amount === 0
+        ? undefined
+        : "Supported hour intervals must divide evenly into 24 (e.g. 1h, 2h, 3h, 4h, 6h, 8h, 12h, 24h)";
+    }
+    if (unit === "d") {
+      return amount === 1 ? undefined : "Use 1d or a 5-field cron expression";
+    }
+  }
   if (trimmed.split(/\s+/).length === 5) return undefined;
-  return "Use an interval like 1h, 30m, 1d or a 5-field cron";
+  return "Use a supported interval like 30m, 1h, 6h, 12h, 24h/1d or a 5-field cron";
 }
 
 function parseCsv(value) {
@@ -806,12 +835,42 @@ async function callOpenAIForConfig(answers, settings) {
   return JSON.parse(stripJsonResponse(content));
 }
 
+function validateGeneratedConfig(config) {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    throw new Error("Generated config must be a JSON object");
+  }
+  const backendType = String(config?.backend?.type || "").trim();
+  if (!["claude", "codex", "github_copilot", "openai"].includes(backendType)) {
+    throw new Error(`Generated config has unsupported backend: ${backendType || "(missing)"}`);
+  }
+  if (!Array.isArray(config.platforms) || config.platforms.length === 0) {
+    throw new Error("Generated config must include at least one platform");
+  }
+  const invalidPlatforms = config.platforms.filter((platform) => !PLATFORM_OPTIONS.some((option) => option.value === platform));
+  if (invalidPlatforms.length > 0) {
+    throw new Error(`Generated config has unsupported platforms: ${invalidPlatforms.join(", ")}`);
+  }
+  const telegram = config.telegram || {};
+  if (typeof telegram.enabled !== "boolean") {
+    throw new Error("Generated config must include telegram.enabled");
+  }
+  if (telegram.enabled && (!String(telegram.bot_token || "").trim() || !String(telegram.chat_id || "").trim())) {
+    throw new Error("Generated config must include telegram bot_token and chat_id when Telegram is enabled");
+  }
+  const schedule = config.schedule || {};
+  const label = String(schedule.label || schedule.expression || schedule.cron || "").trim();
+  if (!label) {
+    throw new Error("Generated config must include a valid schedule");
+  }
+  return config;
+}
+
 async function generateConfig(state) {
   const answers = buildAnswers(state);
-  if (state.backend === "codex") return callCodexForConfig(answers);
-  if (state.backend === "claude") return callClaudeForConfig(answers);
-  if (state.backend === "github_copilot") return callCopilotForConfig(answers, state.backendSettings);
-  if (state.backend === "openai") return callOpenAIForConfig(answers, state.backendSettings);
+  if (state.backend === "codex") return validateGeneratedConfig(callCodexForConfig(answers));
+  if (state.backend === "claude") return validateGeneratedConfig(callClaudeForConfig(answers));
+  if (state.backend === "github_copilot") return validateGeneratedConfig(await callCopilotForConfig(answers, state.backendSettings));
+  if (state.backend === "openai") return validateGeneratedConfig(await callOpenAIForConfig(answers, state.backendSettings));
   throw new Error(`Unsupported backend: ${state.backend}`);
 }
 
@@ -1037,6 +1096,11 @@ async function runWizard() {
   while (index < steps.length) {
     const step = steps[index];
 
+    if ((step === "telegram_bot_token" || step === "telegram_chat_id") && !state.telegram.enabled) {
+      index += 1;
+      continue;
+    }
+
     if ((step === "rsshub_url" || step === "threads_accounts") && !state.platforms.includes("threads")) {
       index += 1;
       continue;
@@ -1253,14 +1317,14 @@ async function runWizard() {
     if (step === "delivery_platform") {
       const value = await askSelect(
         "Choose delivery platform",
-        [{ value: "telegram", label: "Telegram" }],
-        "telegram",
+        DELIVERY_OPTIONS,
+        state.telegram.enabled ? "telegram" : "terminal",
       );
       if (value === BACK) {
         index = previousStep(steps, index, state);
         continue;
       }
-      state.telegram.enabled = true;
+      state.telegram.enabled = value === "telegram";
       index += 1;
       continue;
     }
