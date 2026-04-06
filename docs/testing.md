@@ -28,6 +28,9 @@ Notes:
 - Fixture size is intentionally small to keep runtime down.
 - `claude`, `codex`, `github_copilot`, and `openai` are run one backend at a time.
 - Backends are skipped when local credentials or required env vars are missing.
+- In practice, Codex/Claude usually work as soon as the local CLI is already logged in.
+- GitHub Copilot requires one successful `newsletter-onboard` login/setup first.
+- OpenAI requires the smoke-specific endpoint/model env plus the API key env.
 - Use `--mode telegram` for final live verification.
 - Use `--keep-temp` when debugging a failed backend.
 - Use `--timeout <seconds>` to cap slow backend runs.

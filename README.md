@@ -160,6 +160,9 @@ python3 scripts/smoke_backends.py --backend all --mode terminal --skip-missing
 - Still runs the real configured AI backend for selection and message composition
 - Fixture size is intentionally small to keep the run shorter
 - Backends skip automatically when required local auth/env is missing
+- For most Codex/Claude users, local CLI login is already enough
+- GitHub Copilot smoke needs one prior onboarding/login run
+- OpenAI smoke needs `SMOKE_OPENAI_BASE_URL`, `SMOKE_OPENAI_MODEL`, and the API key env
 - `--mode telegram` can be used for final live delivery verification
 - See `docs/testing.md` for details
 

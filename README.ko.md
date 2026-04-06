@@ -159,6 +159,9 @@ python3 scripts/smoke_backends.py --backend all --mode terminal --skip-missing
 - 선택/요약/메시지 구성은 실제 AI 백엔드가 수행
 - fixture 수를 작게 유지해서 실행 시간을 줄임
 - 필요한 로컬 인증/환경변수가 없으면 해당 백엔드는 자동 skip
+- 보통 Codex/Claude 사용자는 로컬 CLI 로그인만 되어 있으면 바로 smoke 가능
+- GitHub Copilot은 한 번 onboarding/login을 끝내 둬야 함
+- OpenAI는 `SMOKE_OPENAI_BASE_URL`, `SMOKE_OPENAI_MODEL`, API key env가 필요
 - 최종 실전 확인은 `--mode telegram` 으로 가능
 - 자세한 내용은 `docs/testing.md` 참고
 
