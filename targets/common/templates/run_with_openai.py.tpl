@@ -36,6 +36,15 @@ def no_news_message(language: str) -> str:
     return "새 뉴스 없음" if language == "ko" else "No new newsletter items"
 
 
+def log_line(message: str) -> None:
+    timestamp = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S KST")
+    print(f"[{timestamp}] {message}")
+
+
+def selected_entry_count(selected: dict) -> int:
+    return sum(len(entries) for entries in selected.values() if isinstance(entries, list))
+
+
 def build_user_prompt(config: dict, candidates: dict) -> str:
     now_kst = datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
     return json.dumps(
@@ -114,12 +123,16 @@ def collect_if_needed() -> None:
 
 
 def mark(script: str, selected: dict) -> None:
-    subprocess.run(
+    result = subprocess.run(
         ["python3", script],
         input=json.dumps(selected, ensure_ascii=False),
         text=True,
-        check=True,
+        capture_output=True,
+        check=False,
     )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout or "").strip()
+        raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout, stderr=details)
 
 
 def send_messages(config: dict, messages: list[dict]) -> bool:
@@ -131,12 +144,16 @@ def send_messages(config: dict, messages: list[dict]) -> bool:
         return True
 
     for item in messages:
-        subprocess.run(
+        result = subprocess.run(
             ["python3", SEND_TELEGRAM],
             input=item.get("text", "").strip(),
             text=True,
-            check=True,
+            capture_output=True,
+            check=False,
         )
+        if result.returncode != 0:
+            details = (result.stderr or result.stdout or "").strip()
+            raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout, stderr=details)
     return True
 
 
@@ -149,12 +166,14 @@ def write_last_message(summary: str) -> None:
 def main() -> int:
     config = load_config()
     language = config.get("language", "ko")
+    mode = os.environ.get("NEWSLETTER_DELIVERY_MODE", "collect-and-deliver")
+    log_line(f"RUN start backend=openai mode={mode}")
     collect_if_needed()
     candidates = run_collect()
     if not candidates:
         summary = no_news_message(language)
         write_last_message(summary)
-        print(summary)
+        log_line(f"SUMMARY {summary}")
         return 0
 
     result = call_openai_compatible(config, candidates)
@@ -164,21 +183,26 @@ def main() -> int:
 
     if not selected or not messages:
         write_last_message(summary)
-        print(summary)
+        log_line(f"SUMMARY {summary}")
         return 0
 
     mark(MARK_CURATED, selected)
+    entry_count = selected_entry_count(selected)
+    log_line(f"STATE curated entries={entry_count}")
     try:
         send_messages(config, messages)
+        log_line(f"DELIVERY telegram messages={len(messages)} status=ok")
     except subprocess.CalledProcessError:
         mark(MARK_FAILED, selected)
+        log_line(f"STATE send_failed entries={entry_count}")
         write_last_message(summary)
-        print(summary)
+        log_line(f"SUMMARY {summary}")
         return 1
 
     mark(MARK_DELIVERED, selected)
+    log_line(f"STATE delivered entries={entry_count}")
     write_last_message(summary)
-    print(summary)
+    log_line(f"SUMMARY {summary}")
     return 0
 
 

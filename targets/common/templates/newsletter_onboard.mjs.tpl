@@ -29,6 +29,7 @@ const GITHUB_COPILOT_TOKEN_URL = "https://api.github.com/copilot_internal/v2/tok
 const DEFAULT_GITHUB_COPILOT_API_BASE_URL = "https://api.individual.githubcopilot.com";
 const COPILOT_IDE_USER_AGENT = "GitHubCopilotChat/0.26.7";
 const COPILOT_EDITOR_VERSION = "vscode/1.96.2";
+const COPILOT_REQUESTS_DOCS_URL = "https://docs.github.com/en/copilot/concepts/billing/copilot-requests";
 const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr"];
 const DEFAULT_SUBREDDITS = [
   "Anthropic",
@@ -61,6 +62,35 @@ const PLATFORM_OPTIONS = [
 ];
 
 const COPILOT_CUSTOM_MODEL = "__custom_model__";
+// Source of truth for multipliers: GitHub Docs "Requests in GitHub Copilot".
+// Refresh from COPILOT_REQUESTS_DOCS_URL when Copilot onboarding/model UX changes.
+const COPILOT_PREMIUM_MULTIPLIERS = {
+  "claude-haiku-4.5": "0.33",
+  "claude-opus-4.5": "3",
+  "claude-opus-4.6": "3",
+  "claude-opus-4.6-fast": "30",
+  "claude-sonnet-4": "1",
+  "claude-sonnet-4.5": "1",
+  "claude-sonnet-4.6": "1",
+  "gemini-2.5-pro": "1",
+  "gemini-3-flash": "0.33",
+  "gemini-3-pro": "1",
+  "gemini-3.1-pro-preview": "1",
+  "gpt-4.1": "0",
+  "gpt-4o": "0",
+  "gpt-5-mini": "0",
+  "gpt-5.1": "1",
+  "gpt-5.1-codex": "1",
+  "gpt-5.1-codex-mini": "0.33",
+  "gpt-5.1-codex-max": "1",
+  "gpt-5.2": "1",
+  "gpt-5.2-codex": "1",
+  "gpt-5.3-codex": "1",
+  "gpt-5.4": "1",
+  "gpt-5.4-mini": "0.33",
+  "grok-code-fast-1": "0.25",
+  "raptor-mini": "0",
+};
 const COPILOT_MODELS = [
   { value: "claude-sonnet-4.6", label: "claude-sonnet-4.6" },
   { value: "claude-sonnet-4.5", label: "claude-sonnet-4.5" },
@@ -440,6 +470,27 @@ function saveCopilotApiTokenCache(token, expiresAt) {
   );
 }
 
+function resolveCopilotPremiumMultiplier(item) {
+  const candidates = [
+    String(item?.id || "").trim().toLowerCase(),
+    String(item?.value || "").trim().toLowerCase(),
+    String(item?.version || "").trim().toLowerCase(),
+    String(item?.capabilities?.family || "").trim().toLowerCase(),
+  ];
+  for (const candidate of candidates) {
+    if (candidate && COPILOT_PREMIUM_MULTIPLIERS[candidate]) {
+      return COPILOT_PREMIUM_MULTIPLIERS[candidate];
+    }
+  }
+  return "";
+}
+
+function formatCopilotPremiumText(item) {
+  const multiplier = resolveCopilotPremiumMultiplier(item);
+  if (!multiplier) return "";
+  return `x${multiplier}`;
+}
+
 function buildCopilotExchangeHeaders(githubToken) {
   return {
     Accept: "application/json",
@@ -543,11 +594,19 @@ async function runCopilotDeviceLogin() {
 }
 
 function formatCopilotModelLabel(item) {
-  const name = String(item?.name || item?.id || "").trim();
-  const id = String(item?.id || "").trim();
-  if (!name) return id;
-  if (!id || name === id) return name;
-  return `${name} (${id})`;
+  const name = String(item?.name || item?.label || item?.id || item?.value || "").trim();
+  const premium = formatCopilotPremiumText(item);
+  if (!name) return premium ? `Model (${premium})` : "Model";
+  return premium ? `${name} (${premium})` : name;
+}
+
+function decorateCopilotStaticOption(option) {
+  const value = String(option?.value || "").trim();
+  return {
+    ...option,
+    value,
+    label: formatCopilotModelLabel({ id: value, label: String(option?.label || value).trim() || value }),
+  };
 }
 
 async function fetchCopilotModels(runtimeAuth) {
@@ -570,11 +629,13 @@ async function fetchCopilotModels(runtimeAuth) {
     })
     .map((item) => {
       const hints = [];
+      const id = String(item?.id || "").trim();
+      if (id) hints.push(id);
       if (item?.vendor) hints.push(String(item.vendor));
       if (item?.preview) hints.push("preview");
       if (item?.model_picker_enabled === true) hints.push("available");
       return {
-        value: String(item?.id || "").trim(),
+        value: id,
         label: formatCopilotModelLabel(item),
         hint: hints.join(" · ") || undefined,
       };
@@ -1028,7 +1089,7 @@ async function runWizard() {
           index = previousStep(steps, index, state);
           continue;
         }
-        let modelOptions = [...COPILOT_MODELS];
+        let modelOptions = COPILOT_MODELS.map((option) => decorateCopilotStaticOption(option));
         try {
           const fetchedModels = await fetchCopilotModels(runtimeAuth);
           if (fetchedModels.length > 0) {
@@ -1044,6 +1105,13 @@ async function runWizard() {
           ...modelOptions,
           { value: COPILOT_CUSTOM_MODEL, label: "Custom model ID" },
         ];
+        await note(
+          [
+            "Model multipliers follow GitHub's premium request docs.",
+            `Reference: ${COPILOT_REQUESTS_DOCS_URL}`,
+          ].join("\n"),
+          "GitHub Copilot Models",
+        );
         const initialModel = String(state.backendSettings.model || "").trim();
         const defaultModel = modelOptions.find((item) => item.value === "gpt-4o")?.value || modelOptions[0].value;
         const initialChoice = initialModel
