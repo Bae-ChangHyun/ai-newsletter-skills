@@ -1,0 +1,13 @@
+{
+  "language": "en",
+  "platforms": ["hn", "reddit", "tldr"],
+  "subreddits": ["OpenAI", "LocalLLaMA"],
+  "telegram": {
+    "enabled": false
+  },
+  "schedule": {
+    "mode": "interval",
+    "expression": "1h",
+    "label": "1h"
+  }
+}

@@ -30,7 +30,7 @@ def main() -> None:
         codex_bin_token: shutil.which("codex") or "codex",
         workdir_token: str(Path.home()),
     }
-    for name in ("newsletter-onboard", "newsletter-now", "newsletter-start", "newsletter-stop", "newsletter-status"):
+    for name in ("newsletter-onboard", "newsletter-doctor", "newsletter-now", "newsletter-history", "newsletter-start", "newsletter-stop", "newsletter-status"):
         render(TEMPLATES / f"{name}.SKILL.md.tpl", SKILLS_ROOT / name / "SKILL.md", replacements)
     render(TEMPLATES / "run_with_codex.sh.tpl", RUNTIME_ROOT / "scripts" / "run_with_codex.sh", replacements)
     (RUNTIME_ROOT / "scripts" / "run_with_codex.sh").chmod(0o755)

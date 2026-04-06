@@ -71,6 +71,14 @@ def resolve_collector_marker() -> str:
     return os.environ.get("NEWSLETTER_COLLECTOR_MARKER", COLLECTOR_MARKER)
 
 
+def smoke_skip_collector() -> bool:
+    return os.environ.get("NEWSLETTER_SMOKE_SKIP_COLLECTOR", "").strip() in {"1", "true", "yes", "on"}
+
+
+def smoke_skip_immediate_collect() -> bool:
+    return os.environ.get("NEWSLETTER_SMOKE_SKIP_IMMEDIATE_COLLECT", "").strip() in {"1", "true", "yes", "on"}
+
+
 def collect_script_path() -> str:
     return os.path.join(SCRIPT_DIR, "run_collect_cycle.py")
 
@@ -258,14 +266,19 @@ def start():
     runner = resolve_runner()
     marker = resolve_marker()
     lines = filter_newsletter_lines(read_crontab(), runner)
-    lines.append(build_collector_entry(collector_cron))
+    if not smoke_skip_collector():
+        lines.append(build_collector_entry(collector_cron))
     lines.append(build_delivery_entry(resolved_cron, runner, marker))
     write_crontab(lines)
-    immediate_collect_ok = run_immediate_collect()
+    immediate_collect_ok = True if smoke_skip_immediate_collect() else run_immediate_collect()
 
     print(f"뉴스레터 cron이 등록되었습니다: {label}")
-    print(f"수집 cron: {collector_cron}")
-    print(f"수집 설명: {collector_desc}")
+    if smoke_skip_collector():
+        print("수집 cron: smoke-skip")
+        print("수집 설명: smoke test skipped collector registration")
+    else:
+        print(f"수집 cron: {collector_cron}")
+        print(f"수집 설명: {collector_desc}")
     print(f"전송 cron: {resolved_cron}")
     print(f"전송 설명: {resolved_desc}")
     print(f"수집 로그: {COLLECT_LOG_FILE}")
