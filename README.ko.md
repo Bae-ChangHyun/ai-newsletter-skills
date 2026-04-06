@@ -96,12 +96,10 @@ AI 트렌드를 따라가는 것 자체가 풀타임 작업입니다.
 
 ## 빠른 시작
 
-> 통합 온보딩 흐름은 현재 `dev` 브랜치에 있습니다.
-
 **1단계 — 설치**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 -
 ```
 
 **2단계 — Wizard 실행**

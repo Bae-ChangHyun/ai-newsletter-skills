@@ -97,12 +97,10 @@ Every day there are new papers, tools, GitHub repos, and community threads acros
 
 ## Quick Start
 
-> The unified onboarding flow lives on the `dev` branch.
-
 **Step 1 — Install**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/dev/install.py | python3 -
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/ai-newsletter-skills/main/install.py | python3 -
 ```
 
 **Step 2 — Run the wizard**
