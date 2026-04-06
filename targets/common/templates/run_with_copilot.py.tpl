@@ -90,6 +90,27 @@ def strip_json_response(text: str) -> str:
     return stripped
 
 
+def extract_text_content(content) -> str:
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return str(content or "")
+
+
+def validate_editor_result(payload: dict) -> dict:
+    if not isinstance(payload, dict):
+        raise RuntimeError("GitHub Copilot response must be a JSON object")
+    summary = payload.get("summary")
+    messages = payload.get("messages")
+    selected = payload.get("selected")
+    if summary is not None and not isinstance(summary, str):
+        raise RuntimeError("Editor result.summary must be a string")
+    if messages is not None and not isinstance(messages, list):
+        raise RuntimeError("Editor result.messages must be a list")
+    if selected is not None and not isinstance(selected, dict):
+        raise RuntimeError("Editor result.selected must be an object")
+    return payload
+
+
 def load_copilot_github_token() -> str:
     with open(COPILOT_GITHUB_TOKEN_FILE, "r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -272,10 +293,8 @@ def call_copilot(config: dict, candidates: dict) -> dict:
             "response_format": {"type": "json_object"},
         },
     )
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-    if isinstance(content, list):
-        content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
-    return json.loads(strip_json_response(content))
+    content = extract_text_content(response.get("choices", [{}])[0].get("message", {}).get("content", ""))
+    return validate_editor_result(json.loads(strip_json_response(content)))
 
 
 def mark(script: str, selected: dict) -> None:

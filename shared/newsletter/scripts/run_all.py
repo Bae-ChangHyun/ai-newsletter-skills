@@ -190,9 +190,7 @@ def pending_items_from_state(platforms):
 
 def format_platform_items(items):
     platform_items = {}
-    final_candidates = dedupe_candidates(items)
-    final_candidates.sort(key=candidate_priority)
-    for item in final_candidates:
+    for item in sorted(items, key=candidate_priority):
         platform = item.get("platform") or item.get("source") or "unknown"
         payload = {
             "title": item["title"],
@@ -208,10 +206,11 @@ def format_platform_items(items):
             payload["description"] = item.get("description")
         platform_items.setdefault(platform, []).append(payload)
 
+    final_count = sum(len(entries) for entries in platform_items.values())
     print(
         "COLLECT_TOTAL "
         f"collected={len(items)} "
-        f"final={len(final_candidates)} "
+        f"final={final_count} "
         f"platforms={len(platform_items)}",
         file=sys.stderr,
     )

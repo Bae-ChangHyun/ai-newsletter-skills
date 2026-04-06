@@ -71,10 +71,7 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
     runtime_root = home_root / "runtime"
     bin_root = home_root / "bin"
     local_bin_root = Path.home() / ".local" / "bin"
-    if runtime_root.exists():
-        mergetree(SHARED_ROOT, runtime_root)
-    else:
-        install_runtime(SHARED_ROOT, runtime_root)
+    install_runtime(SHARED_ROOT, runtime_root)
     (runtime_root / ".data").mkdir(parents=True, exist_ok=True)
     bin_root.mkdir(parents=True, exist_ok=True)
     local_bin_root.mkdir(parents=True, exist_ok=True)
@@ -83,7 +80,7 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
         "__REPO_ROOT__": str(REPO_ROOT),
         "__RUNTIME_ROOT__": str(runtime_root),
         "__HOME_ROOT__": str(home_root),
-        "__DEFAULT_CODEX_BIN__": shutil.which("codex") or "/home/bch/.nvm/versions/node/v20.20.1/bin/codex",
+        "__DEFAULT_CODEX_BIN__": shutil.which("codex") or "codex",
         "__DEFAULT_CLAUDE_BIN__": shutil.which("claude") or "claude",
         "__DEFAULT_COPILOT_BIN__": shutil.which("copilot") or "copilot",
         "__DEFAULT_WORKDIR__": str(Path.home()),

@@ -36,9 +36,8 @@ def main() -> None:
         print("Subreddits:", ", ".join(config["subreddits"]))
     schedule = config.get("schedule", {})
     print("Delivery schedule:", schedule.get("label") or schedule.get("expression") or schedule.get("cron", "-"))
-    print("Collector schedule:", "hourly")
     telegram = config.get("telegram", {})
-    print("Telegram:", "enabled" if telegram.get("enabled") else "disabled")
+    print("Delivery:", "Telegram" if telegram.get("enabled") else "Terminal only")
     if config.get("threads_accounts"):
         print("Threads:", ", ".join(config["threads_accounts"]))
         print("RSSHub:", config.get("rsshub_url", "-"))

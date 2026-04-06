@@ -4,7 +4,7 @@
 
 **Curated AI news, delivered automatically — powered by the AI agent of your choice.**
 
-Pull from 7 sources. Remove noise with AI. Receive a digest on Telegram — all from one CLI.
+Pull from 7 supported sources. Remove noise with AI. Receive a digest on Telegram or preview locally — all from one CLI.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -44,9 +44,9 @@ Every day there are new papers, tools, GitHub repos, and community threads acros
 
 **AI Newsletter Skills automates the entire pipeline:**
 
-- Collect from 7 curated sources on a schedule
+- Collect from 7 supported sources on a schedule
 - Use your preferred AI engine to filter noise and summarize what matters
-- Deliver a clean digest to your Telegram — no third-party service, no subscription
+- Deliver a clean digest to Telegram or the terminal — no third-party service, no subscription
 
 ---
 
@@ -86,8 +86,9 @@ Every day there are new papers, tools, GitHub repos, and community threads acros
 - **One-command install** — a single `curl | python3` line sets everything up
 - **Interactive onboarding wizard** — guided setup with live validation and re-runnable config
 - **4 AI engines** — Claude Code, Codex, GitHub Copilot, and any OpenAI-compatible endpoint
-- **7 news sources** — Hacker News, Reddit, Threads (via RSSHub), GeekNews, DevDay, TLDR, Velopers
+- **7 supported news sources** — Hacker News, Reddit, Threads (via RSSHub), GeekNews, DevDay, TLDR, Velopers
 - **Telegram delivery** — bot token verification and chat ID confirmation during onboarding
+- **Terminal-only preview mode** — skip Telegram and print the digest locally when desired
 - **RSSHub integration** — health-checked Threads collection with graceful fallback
 - **Cron-based scheduling** — one recurring entry, registered and removed with a single command
 - **Config preservation** — re-running onboarding reloads previous values as defaults
@@ -96,6 +97,13 @@ Every day there are new papers, tools, GitHub repos, and community threads acros
 ---
 
 ## Quick Start
+
+**Requirements**
+
+- `python3`
+- `node` and `npm`
+- `crontab` / cron
+- One AI backend you plan to use (`codex`, `claude`, GitHub Copilot, or an OpenAI-compatible API key)
 
 **Step 1 — Install**
 
@@ -122,7 +130,7 @@ newsletter-now      # send one digest immediately
 newsletter-start    # enable the recurring cron schedule
 ```
 
-That's it. Your Telegram will receive curated AI news on the schedule you set.
+That's it. Your Telegram will receive curated AI news on the schedule you set, or `newsletter-now` will print the digest locally if you choose terminal-only delivery.
 
 ---
 
@@ -131,7 +139,7 @@ That's it. Your Telegram will receive curated AI news on the schedule you set.
 | Command | Description |
 | --- | --- |
 | `newsletter-onboard` | Run the guided setup wizard and install the selected AI engine integration |
-| `newsletter-status` | Show AI engine, language, sources, delivery settings, and active cron line |
+| `newsletter-status` | Show AI engine, language, sources, delivery mode, and active cron lines |
 | `newsletter-now` | Run one immediate newsletter cycle with the configured AI engine |
 | `newsletter-start` | Register one recurring cron entry for the configured AI engine |
 | `newsletter-stop` | Remove the newsletter cron entry |
@@ -148,6 +156,7 @@ That's it. Your Telegram will receive curated AI news on the schedule you set.
 | AI Engine | Which AI agent runs the editorial step |
 | Sources | Which platforms to pull from |
 | Subreddits | Reddit communities to monitor |
+| Delivery mode | Telegram delivery or terminal-only preview |
 | Telegram bot token | Delivery endpoint (live-verified via `getMe`) |
 | Telegram chat ID | Target chat or group |
 | RSSHub URL | Base URL for Threads collection |

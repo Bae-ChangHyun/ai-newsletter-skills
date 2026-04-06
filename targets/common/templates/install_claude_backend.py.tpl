@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 
@@ -24,9 +25,9 @@ def main() -> None:
     claude_bin_token = "__" + "DEFAULT_CLAUDE_BIN__"
     replacements = {
         runtime_token: str(RUNTIME_ROOT),
-        claude_bin_token: "__DEFAULT_CLAUDE_BIN__",
+        claude_bin_token: shutil.which("claude") or "claude",
     }
-    for name in ("newsletter-now", "newsletter-start", "newsletter-stop", "newsletter-status"):
+    for name in ("newsletter-onboard", "newsletter-now", "newsletter-start", "newsletter-stop", "newsletter-status"):
         render(TEMPLATES / f"{name}.SKILL.md.tpl", SKILLS_ROOT / name / "SKILL.md", replacements)
     render(TEMPLATES / "news-collector.md.tpl", RUNTIME_ROOT / "agents" / "news-collector.md", replacements)
     render(TEMPLATES / "run_with_claude.sh.tpl", RUNTIME_ROOT / "scripts" / "run_with_claude.sh", replacements)

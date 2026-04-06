@@ -16,7 +16,7 @@ from pathlib import Path
 
 DEFAULT_OWNER = "Bae-ChangHyun"
 DEFAULT_REPO = "ai-newsletter-skills"
-DEFAULT_REF = "dev"
+DEFAULT_REF = "main"
 
 
 def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
@@ -37,7 +37,6 @@ def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
         OWNER = {owner!r}
         REPO = {repo!r}
         REF = {ref!r}
-        FALLBACK_REF = "dev"
         HOME_ROOT = Path({str(home_root)!r})
 
 
@@ -60,29 +59,14 @@ def bootstrap_script(home_root: Path, owner: str, repo: str, ref: str) -> str:
                 raise RuntimeError(f"Unexpected archive layout for {{OWNER}}/{{REPO}}@{{target_ref}}")
             return temp_dir_ctx, matches[0]
 
-
-        def download_repo() -> tuple[tempfile.TemporaryDirectory[str], Path]:
-            temp_dir_ctx, repo_root = download_ref(REF)
-            installer = repo_root / "scripts" / "install_common.py"
-            if installer.exists():
-                return temp_dir_ctx, repo_root
-
-            temp_dir_ctx.cleanup()
-            if REF != FALLBACK_REF:
-                temp_dir_ctx, repo_root = download_ref(FALLBACK_REF)
-                installer = repo_root / "scripts" / "install_common.py"
-                if installer.exists():
-                    return temp_dir_ctx, repo_root
-            raise RuntimeError(
-                f"Bootstrap installer not found in {{OWNER}}/{{REPO}}@{{REF}} or fallback {{FALLBACK_REF}}"
-            )
-
-
         def main() -> None:
             env = os.environ.copy()
             env["AI_NEWSLETTER_HOME"] = str(HOME_ROOT)
-            temp_dir_ctx, repo_root = download_repo()
+            temp_dir_ctx, repo_root = download_ref(REF)
             try:
+                installer = repo_root / "scripts" / "install_common.py"
+                if not installer.exists():
+                    raise RuntimeError(f"Bootstrap installer not found in {{OWNER}}/{{REPO}}@{{REF}}")
                 subprocess.run([sys.executable, str(repo_root / "scripts" / "install_common.py")], check=True, env=env)
                 onboarding_js = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.mjs"
                 onboarding_py = HOME_ROOT / "runtime" / "scripts" / "newsletter_onboard.py"

@@ -4,7 +4,7 @@
 
 **큐레이팅된 AI 뉴스를, 원하는 AI 에이전트로, 자동으로 받아보세요.**
 
-7개 소스에서 수집. AI로 노이즈 제거. 텔레그램으로 다이제스트 전달 — 모두 CLI 하나로.
+지원되는 7개 소스에서 수집. AI로 노이즈 제거. 텔레그램 전달 또는 로컬 미리보기 — 모두 CLI 하나로.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -43,9 +43,9 @@ AI 트렌드를 따라가는 것 자체가 풀타임 작업입니다.
 
 **AI Newsletter Skills는 이 전체 파이프라인을 자동화합니다:**
 
-- 7개 큐레이팅된 소스에서 스케줄에 맞춰 수집
+- 지원되는 7개 소스에서 스케줄에 맞춰 수집
 - 선호하는 AI 엔진으로 노이즈를 걸러내고 중요한 것만 요약
-- 깔끔한 다이제스트를 텔레그램으로 전달 — 외부 서비스 없음, 구독 없음
+- 깔끔한 다이제스트를 텔레그램 또는 터미널로 전달 — 외부 서비스 없음, 구독 없음
 
 ---
 
@@ -85,8 +85,9 @@ AI 트렌드를 따라가는 것 자체가 풀타임 작업입니다.
 - **한 줄 설치** — `curl | python3` 한 줄이면 모든 준비 완료
 - **대화형 온보딩 wizard** — 실시간 검증과 재실행 가능한 설정을 갖춘 안내형 셋업
 - **4개 AI 엔진** — Claude Code, Codex, GitHub Copilot, 그리고 모든 OpenAI-compatible 엔드포인트
-- **7개 뉴스 소스** — Hacker News, Reddit, Threads (RSSHub 경유), GeekNews, DevDay, TLDR, Velopers
+- **지원되는 7개 뉴스 소스** — Hacker News, Reddit, Threads (RSSHub 경유), GeekNews, DevDay, TLDR, Velopers
 - **Telegram 전달** — 온보딩 중 봇 토큰 검증 및 채팅 ID 확인
+- **터미널 미리보기 모드** — 원하면 Telegram 없이 로컬 출력으로 실행 가능
 - **RSSHub 연동** — 헬스 체크된 Threads 수집과 우아한 fallback
 - **cron 기반 스케줄링** — 명령어 하나로 반복 실행 등록 및 제거
 - **설정 보존** — 온보딩을 다시 실행하면 이전 값을 기본값으로 불러옴
@@ -95,6 +96,13 @@ AI 트렌드를 따라가는 것 자체가 풀타임 작업입니다.
 ---
 
 ## 빠른 시작
+
+**필수 조건**
+
+- `python3`
+- `node` 와 `npm`
+- `crontab` / cron
+- 사용할 AI 백엔드 하나 (`codex`, `claude`, GitHub Copilot, 또는 OpenAI-compatible API key)
 
 **1단계 — 설치**
 
@@ -121,7 +129,7 @@ newsletter-now      # 다이제스트 즉시 1회 전송
 newsletter-start    # 반복 cron 스케줄 활성화
 ```
 
-끝입니다. 설정한 스케줄에 따라 텔레그램으로 큐레이팅된 AI 뉴스가 도착합니다.
+끝입니다. 설정한 스케줄에 따라 텔레그램으로 큐레이팅된 AI 뉴스가 도착하고, 터미널 전용 모드를 선택했다면 `newsletter-now`가 로컬에 다이제스트를 출력합니다.
 
 ---
 
@@ -130,7 +138,7 @@ newsletter-start    # 반복 cron 스케줄 활성화
 | 명령어 | 설명 |
 | --- | --- |
 | `newsletter-onboard` | 안내형 설정 wizard를 실행하고 선택한 AI 엔진 연동을 설치 |
-| `newsletter-status` | AI 엔진, 언어, 소스, 전달 설정, 활성 cron 줄을 표시 |
+| `newsletter-status` | AI 엔진, 언어, 소스, 전달 모드, 활성 cron 줄을 표시 |
 | `newsletter-now` | 설정된 AI 엔진으로 뉴스레터 사이클 1회 즉시 실행 |
 | `newsletter-start` | 설정된 AI 엔진용 반복 cron 엔트리 1줄 등록 |
 | `newsletter-stop` | 뉴스레터 cron 엔트리 제거 |
@@ -147,6 +155,7 @@ newsletter-start    # 반복 cron 스케줄 활성화
 | AI Engine | 편집 단계를 실행할 AI 에이전트 |
 | Sources | 수집할 플랫폼 |
 | Subreddits | 모니터링할 Reddit 커뮤니티 |
+| 전달 방식 | Telegram 전달 또는 터미널 전용 미리보기 |
 | Telegram bot token | 전달 엔드포인트 (`getMe`로 실시간 검증) |
 | Telegram chat ID | 대상 채팅 또는 그룹 |
 | RSSHub URL | Threads 수집용 base URL |
