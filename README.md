@@ -10,6 +10,7 @@ Pull from 7 sources. Remove noise with AI. Receive a digest on Telegram — all 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Stars](https://img.shields.io/github/stars/Bae-ChangHyun/ai-newsletter-skills?style=flat-square&color=f9c74f)](https://github.com/Bae-ChangHyun/ai-newsletter-skills/stargazers)
 [![Issues](https://img.shields.io/github/issues/Bae-ChangHyun/ai-newsletter-skills?style=flat-square&color=ef476f)](https://github.com/Bae-ChangHyun/ai-newsletter-skills/issues)
+<br>
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-D97706?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
 [![Codex](https://img.shields.io/badge/Codex-111827?style=flat-square&logo=openai&logoColor=white)](https://openai.com/codex)
 [![GitHub Copilot](https://img.shields.io/badge/GitHub%20Copilot-0F172A?style=flat-square&logo=githubcopilot&logoColor=white)](https://github.com/features/copilot)
