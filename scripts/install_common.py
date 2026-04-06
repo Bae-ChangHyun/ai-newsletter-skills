@@ -36,7 +36,7 @@ def main() -> None:
     runtime_root, bin_root = install_common_runtime(common_home)
     print(f"Installed shared runtime: {runtime_root}")
     print(f"Installed unified commands: {bin_root}")
-    print("Unified commands: newsletter-onboard, newsletter-now, newsletter-start, newsletter-stop, newsletter-status")
+    print("Unified commands: newsletter-onboard, newsletter-doctor, newsletter-history, newsletter-now, newsletter-start, newsletter-stop, newsletter-status(alias)")
 
 
 if __name__ == "__main__":

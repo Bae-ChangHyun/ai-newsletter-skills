@@ -92,7 +92,7 @@ Every day there are new papers, tools, GitHub repos, and community threads acros
 - **RSSHub integration** — health-checked Threads collection with graceful fallback
 - **Cron-based scheduling** — one recurring entry, registered and removed with a single command
 - **Config preservation** — re-running onboarding reloads previous values as defaults
-- **5 shell commands** — one word for each operation: onboard, status, now, start, stop
+- **6 core shell commands** — one word for each operation: onboard, doctor, history, now, start, stop
 
 ---
 
@@ -125,7 +125,8 @@ newsletter-onboard
 **Step 3 — Verify and run**
 
 ```bash
-newsletter-status   # confirm what was saved
+newsletter-doctor   # inspect config, backend health, and cron status
+newsletter-history  # inspect recent delivered items and summaries
 newsletter-now      # send one digest immediately
 newsletter-start    # enable the recurring cron schedule
 ```
@@ -139,10 +140,34 @@ That's it. Your Telegram will receive curated AI news on the schedule you set, o
 | Command | Description |
 | --- | --- |
 | `newsletter-onboard` | Run the guided setup wizard and install the selected AI engine integration |
-| `newsletter-status` | Show AI engine, language, sources, delivery mode, and active cron lines |
+| `newsletter-doctor` | Show config, backend-specific diagnostics, delivery mode, latest summary, and active cron lines |
+| `newsletter-history` | Show recent delivery summaries and the most recently delivered newsletter items |
 | `newsletter-now` | Run one immediate newsletter cycle with the configured AI engine |
 | `newsletter-start` | Register one recurring cron entry for the configured AI engine |
 | `newsletter-stop` | Remove the newsletter cron entry |
+
+> `newsletter-status` remains available as a compatibility alias and now delegates to `newsletter-doctor`.
+
+### Backend smoke test
+
+For repeatable regression checks with fixed collected items but real editorial backend execution:
+
+```bash
+python3 scripts/smoke_backends.py --backend all --mode terminal --skip-missing
+```
+
+- Uses fixture `.jsonl` items instead of live collection
+- Still runs the real configured AI backend for selection and message composition
+- Fixture size is intentionally small to keep the run shorter
+- Backends skip automatically when required local auth/env is missing
+- `--mode telegram` can be used for final live delivery verification
+- See `docs/testing.md` for details
+
+Cron registration smoke test:
+
+```bash
+python3 scripts/smoke_cron.py --backend all --skip-missing --timeout 150
+```
 
 ---
 
@@ -161,7 +186,7 @@ That's it. Your Telegram will receive curated AI news on the schedule you set, o
 | Telegram chat ID | Target chat or group |
 | RSSHub URL | Base URL for Threads collection |
 | Threads handles | Accounts to follow via RSSHub |
-| Schedule | Cron expression for recurring delivery |
+| Schedule | `1h`, `30m`, 5-field cron, or natural text like `every 2 hours` / `1시간마다` |
 
 Running `newsletter-onboard` again reloads existing `config.json` values as defaults — nothing is lost unless you change it.
 

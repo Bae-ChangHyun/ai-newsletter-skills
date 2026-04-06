@@ -87,6 +87,7 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
     }
 
     render(COMMON_TEMPLATES / "newsletter_onboard.mjs.tpl", runtime_root / "scripts" / "newsletter_onboard.mjs", replacements)
+    render(COMMON_TEMPLATES / "newsletter_onboard_support.mjs.tpl", runtime_root / "scripts" / "newsletter_onboard_support.mjs", replacements)
     render(COMMON_TEMPLATES / "newsletter_dispatch.py.tpl", runtime_root / "scripts" / "newsletter_dispatch.py", replacements)
     render(COMMON_TEMPLATES / "newsletter_status.py.tpl", runtime_root / "scripts" / "newsletter_status.py", replacements)
     render(COMMON_TEMPLATES / "run_with_openai.py.tpl", runtime_root / "scripts" / "run_with_openai.py", replacements)
@@ -94,6 +95,8 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
     render(COMMON_TEMPLATES / "install_codex_backend.py.tpl", runtime_root / "scripts" / "install_codex_backend.py", replacements)
     render(COMMON_TEMPLATES / "install_claude_backend.py.tpl", runtime_root / "scripts" / "install_claude_backend.py", replacements)
     render(SHARED_ROOT / "prompts" / "generate_config.md.tpl", runtime_root / "prompts" / "generate_config.md", replacements)
+    render(SHARED_ROOT / "prompts" / "normalize_schedule.md.tpl", runtime_root / "prompts" / "normalize_schedule.md", replacements)
+    render(SHARED_ROOT / "prompts" / "run_newsletter_claude.md.tpl", runtime_root / "prompts" / "run_newsletter_claude.md", replacements)
     render(SHARED_ROOT / "prompts" / "run_newsletter_openai.md.tpl", runtime_root / "prompts" / "run_newsletter_openai.md", replacements)
     render(SHARED_ROOT / "prompts" / "run_newsletter_copilot.md.tpl", runtime_root / "prompts" / "run_newsletter_copilot.md", replacements)
     shutil.copy2(SHARED_ROOT / "prompts" / "run_newsletter_codex.md.tpl", runtime_root / "prompts" / "run_newsletter_codex.md.tpl")
@@ -102,7 +105,9 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
 
     for name in (
         "newsletter-onboard",
+        "newsletter-doctor",
         "newsletter-now",
+        "newsletter-history",
         "newsletter-start",
         "newsletter-stop",
         "newsletter-status",
@@ -120,6 +125,7 @@ def install_common_runtime(home_root: Path) -> tuple[Path, Path]:
 
     for script_name in (
         "newsletter_onboard.mjs",
+        "newsletter_onboard_support.mjs",
         "newsletter_dispatch.py",
         "newsletter_status.py",
         "run_with_openai.py",

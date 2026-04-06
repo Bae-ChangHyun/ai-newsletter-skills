@@ -91,7 +91,7 @@ AI 트렌드를 따라가는 것 자체가 풀타임 작업입니다.
 - **RSSHub 연동** — 헬스 체크된 Threads 수집과 우아한 fallback
 - **cron 기반 스케줄링** — 명령어 하나로 반복 실행 등록 및 제거
 - **설정 보존** — 온보딩을 다시 실행하면 이전 값을 기본값으로 불러옴
-- **5개 셸 명령어** — 각 작업에 하나씩: onboard, status, now, start, stop
+- **6개 핵심 셸 명령어** — 각 작업에 하나씩: onboard, doctor, history, now, start, stop
 
 ---
 
@@ -124,7 +124,8 @@ newsletter-onboard
 **3단계 — 확인 및 실행**
 
 ```bash
-newsletter-status   # 저장된 설정 확인
+newsletter-doctor   # 설정, 백엔드 상태, cron 상태를 함께 진단
+newsletter-history  # 최근 발송 기사와 요약 확인
 newsletter-now      # 다이제스트 즉시 1회 전송
 newsletter-start    # 반복 cron 스케줄 활성화
 ```
@@ -138,10 +139,34 @@ newsletter-start    # 반복 cron 스케줄 활성화
 | 명령어 | 설명 |
 | --- | --- |
 | `newsletter-onboard` | 안내형 설정 wizard를 실행하고 선택한 AI 엔진 연동을 설치 |
-| `newsletter-status` | AI 엔진, 언어, 소스, 전달 모드, 활성 cron 줄을 표시 |
+| `newsletter-doctor` | 설정, 현재 백엔드 진단, 전달 모드, 최근 요약, 활성 cron 줄을 표시 |
+| `newsletter-history` | 최근 발송 요약과 최근에 전달된 뉴스 항목을 표시 |
 | `newsletter-now` | 설정된 AI 엔진으로 뉴스레터 사이클 1회 즉시 실행 |
 | `newsletter-start` | 설정된 AI 엔진용 반복 cron 엔트리 1줄 등록 |
 | `newsletter-stop` | 뉴스레터 cron 엔트리 제거 |
+
+> `newsletter-status`는 호환성 alias로 남아 있으며 이제 `newsletter-doctor`를 호출합니다.
+
+### 백엔드 스모크 테스트
+
+고정된 수집 데이터는 재사용하고, 실제 AI 백엔드 편집/메시지 구성은 그대로 실행하려면:
+
+```bash
+python3 scripts/smoke_backends.py --backend all --mode terminal --skip-missing
+```
+
+- 라이브 수집 대신 fixture `.jsonl` 데이터를 사용
+- 선택/요약/메시지 구성은 실제 AI 백엔드가 수행
+- fixture 수를 작게 유지해서 실행 시간을 줄임
+- 필요한 로컬 인증/환경변수가 없으면 해당 백엔드는 자동 skip
+- 최종 실전 확인은 `--mode telegram` 으로 가능
+- 자세한 내용은 `docs/testing.md` 참고
+
+cron 등록/실행/제거까지 확인하는 스모크 테스트:
+
+```bash
+python3 scripts/smoke_cron.py --backend all --skip-missing --timeout 150
+```
 
 ---
 
@@ -160,7 +185,7 @@ newsletter-start    # 반복 cron 스케줄 활성화
 | Telegram chat ID | 대상 채팅 또는 그룹 |
 | RSSHub URL | Threads 수집용 base URL |
 | Threads handles | RSSHub로 팔로우할 계정 |
-| Schedule | 반복 전달용 cron 표현식 |
+| Schedule | `1h`, `30m`, 5필드 cron 또는 `1시간마다` 같은 자연어 |
 
 `newsletter-onboard`를 다시 실행하면 기존 `config.json` 값을 기본값으로 불러옵니다 — 직접 변경하지 않는 한 아무것도 사라지지 않습니다.
 

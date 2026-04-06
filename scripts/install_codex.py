@@ -24,7 +24,7 @@ def main() -> None:
         "__DEFAULT_WORKDIR__": str(Path.home()),
     }
 
-    for name in ("newsletter-onboard", "newsletter-now", "newsletter-start", "newsletter-stop", "newsletter-status"):
+    for name in ("newsletter-onboard", "newsletter-doctor", "newsletter-now", "newsletter-history", "newsletter-start", "newsletter-stop", "newsletter-status"):
         render(TEMPLATES / f"{name}.SKILL.md.tpl", skills_root / name / "SKILL.md", replacements)
 
     render(TEMPLATES / "run_with_codex.sh.tpl", runtime_root / "scripts" / "run_with_codex.sh", replacements)
@@ -33,7 +33,7 @@ def main() -> None:
 
     print(f"Installed shared runtime: {runtime_root}")
     print(f"Installed unified commands: {bin_root}")
-    print("Installed Codex skills: newsletter-onboard, newsletter-now, newsletter-start, newsletter-stop, newsletter-status")
+    print("Installed Codex skills: newsletter-onboard, newsletter-doctor, newsletter-now, newsletter-history, newsletter-start, newsletter-stop, newsletter-status(alias)")
 
 
 if __name__ == "__main__":
