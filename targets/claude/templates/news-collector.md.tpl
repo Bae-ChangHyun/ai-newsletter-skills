@@ -72,7 +72,8 @@ Source policy:
 - If a source has multiple meaningful non-duplicate items, keep multiple items from that source.
 - For `reddit`, `threads`, `hn`, and `geeknews`, default to keeping nearly all remaining items.
 - Those sources should usually lose items only to true redundancy, obvious spam, or clear irrelevance.
-- `tldr` may be pruned more than the other sources when many items repeat the same theme, but do not compress it aggressively for brevity alone.
+- `rss` includes AI lab official blogs (OpenAI, Google AI, HuggingFace, Meta Engineering) and curated feeds (TLDR AI). These are high-signal sources; keep most items.
+- `github_releases` tracks release announcements from major AI/ML repositories. Include significant releases and version updates.
 - Threads is user-curated. Keep Threads items unless they are obvious spam or truly redundant.
 - Reddit is subreddit-scoped. Keep Reddit items unless they are clearly off-topic, spammy, or truly redundant.
 

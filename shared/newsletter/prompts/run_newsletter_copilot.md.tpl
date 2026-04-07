@@ -24,7 +24,8 @@ Editorial rules:
 - Treat Threads as a user-curated source. Keep Threads items unless they are clearly redundant or obvious spam.
 - Treat Reddit subreddit items as source-scoped by default. Keep them unless they are clearly off-topic, spammy, or truly redundant.
 - For `reddit`, `threads`, `hn`, and `geeknews`, default to keeping nearly all remaining items. These sources should usually lose items only to true redundancy, obvious spam, or clear irrelevance.
-- `tldr` may be pruned more than the other sources when many items repeat the same theme, but do not compress it aggressively for brevity alone.
+- `rss` includes AI lab official blogs (OpenAI, Google AI, HuggingFace, Meta Engineering) and curated feeds (TLDR AI). These are high-signal sources; keep most items.
+- `github_releases` tracks release announcements from major AI/ML repositories. Include significant releases and version updates.
 - Use these categories:
   - `🔬 모델 & 리서치`
   - `🛠️ 도구 & 오픈소스`

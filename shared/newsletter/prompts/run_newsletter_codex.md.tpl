@@ -27,11 +27,12 @@ Required workflow:
 - do not compress the digest for brevity
 - do not impose a target item count
 - preserve source breadth and source volume: if a source has multiple meaningful non-duplicate items, keep multiple items from that source
-- do not drop Reddit or Threads items only because a similar HN/TLDR item exists; drop them only when they are truly redundant and clearly weaker
+- do not drop Reddit or Threads items only because a similar HN/RSS item exists; drop them only when they are truly redundant and clearly weaker
 - Threads is a user-curated source; keep Threads items unless they are obvious spam or truly redundant
 - Reddit subreddit items are already source-scoped; keep them unless they are clearly off-topic, spammy, or truly redundant
 - For `reddit`, `threads`, `hn`, and `geeknews`, default to keeping nearly all remaining items. These sources should usually lose items only to true redundancy, obvious spam, or clear irrelevance.
-- `tldr` may be pruned more than the other sources when many items repeat the same theme, but still do not compress it aggressively for brevity alone.
+- `rss` includes AI lab official blogs (OpenAI, Google AI, HuggingFace, Meta Engineering) and curated feeds (TLDR AI). These are high-signal sources; keep most items.
+- `github_releases` tracks release announcements from major AI/ML repositories. Include significant releases and version updates.
 - categorize with judgment into:
   - `🔬 모델 & 리서치`
   - `🛠️ 도구 & 오픈소스`

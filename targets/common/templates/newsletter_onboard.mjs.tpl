@@ -30,7 +30,7 @@ const DEFAULT_GITHUB_COPILOT_API_BASE_URL = "https://api.individual.githubcopilo
 const COPILOT_IDE_USER_AGENT = "GitHubCopilotChat/0.26.7";
 const COPILOT_EDITOR_VERSION = "vscode/1.96.2";
 const COPILOT_REQUESTS_DOCS_URL = "https://docs.github.com/en/copilot/concepts/billing/copilot-requests";
-const DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr", "devday", "velopers"];
+const DEFAULT_PLATFORMS = ["rss", "reddit", "github_releases", "devday", "velopers"];
 const DEFAULT_SUBREDDITS = [
   "Anthropic",
   "ArtificialInteligence",
@@ -59,13 +59,42 @@ const DELIVERY_OPTIONS = [
 ];
 
 const PLATFORM_OPTIONS = [
-  { value: "hn", label: "Hacker News" },
+  { value: "rss", label: "RSS Feeds (HN, GeekNews, AI blogs, TLDR, custom)" },
   { value: "reddit", label: "Reddit" },
-  { value: "geeknews", label: "GeekNews" },
-  { value: "tldr", label: "TLDR" },
+  { value: "github_releases", label: "GitHub Releases" },
   { value: "devday", label: "DevDay" },
   { value: "velopers", label: "Velopers" },
   { value: "threads", label: "Threads via RSSHub" },
+];
+
+const DEFAULT_RSS_FEEDS = [
+  // AI Lab blogs
+  { name: "OpenAI Blog", url: "https://openai.com/blog/rss.xml" },
+  { name: "Google AI Blog", url: "https://blog.google/technology/ai/rss/" },
+  { name: "HuggingFace Blog", url: "https://huggingface.co/blog/feed.xml" },
+  { name: "Meta Engineering (AI)", url: "https://engineering.fb.com/category/ml-applications/feed/" },
+  // Big Tech research
+  { name: "Microsoft Research", url: "https://www.microsoft.com/en-us/research/feed/" },
+  { name: "Apple ML", url: "https://machinelearning.apple.com/rss.xml" },
+  { name: "Amazon Science", url: "https://www.amazon.science/index.rss" },
+  { name: "NVIDIA Blog", url: "https://blogs.nvidia.com/feed/" },
+  // Communities & aggregators
+  { name: "Hacker News", url: "https://hnrss.org/frontpage?points=30" },
+  { name: "GeekNews", url: "https://feeds.feedburner.com/geeknews-feed" },
+  { name: "Product Hunt", url: "https://www.producthunt.com/feed" },
+  { name: "TLDR AI", url: "https://bullrich.dev/tldr-rss/ai.rss" },
+  // Dev tools & blogs
+  { name: "LangChain Blog", url: "https://blog.langchain.com/rss/" },
+  { name: "Simon Willison", url: "https://simonwillison.net/atom/everything/" },
+];
+
+const DEFAULT_GITHUB_REPOS = [
+  "pytorch/pytorch",
+  "huggingface/transformers",
+  "langchain-ai/langchain",
+  "ollama/ollama",
+  "openai/openai-python",
+  "anthropics/anthropic-sdk-python",
 ];
 
 const COPILOT_CUSTOM_MODEL = "__custom_model__";
@@ -238,7 +267,7 @@ function buildAnswers(state) {
   const telegram = { enabled: Boolean(state.telegram?.enabled) };
   if (telegram.enabled && state.telegram?.bot_token) telegram.bot_token = state.telegram.bot_token;
   if (telegram.enabled && state.telegram?.chat_id) telegram.chat_id = state.telegram.chat_id;
-  return {
+  const answers = {
     language: state.language,
     backend: state.backend,
     backend_settings: state.backendSettings,
@@ -254,6 +283,9 @@ function buildAnswers(state) {
       shared_state_dir: path.join(RUNTIME_ROOT, ".data"),
     },
   };
+  if (state.rssFeeds?.length) answers.rss_feeds = state.rssFeeds;
+  if (state.githubRepos?.length) answers.github_repos = state.githubRepos;
+  return answers;
 }
 
 function validateRequired(label, value) {
@@ -293,6 +325,126 @@ function parseCsv(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function rssFeedOptions(existing = []) {
+  const merged = [...DEFAULT_RSS_FEEDS];
+  for (const feed of existing) {
+    if (!merged.some((f) => f.url === feed.url)) {
+      merged.push(feed);
+    }
+  }
+  return merged.map((feed) => ({
+    value: feed.url,
+    label: feed.name,
+    hint: feed.url,
+  }));
+}
+
+function githubRepoOptions(existing = []) {
+  const merged = [...new Set([...DEFAULT_GITHUB_REPOS, ...existing])];
+  return merged.map((repo) => ({
+    value: repo,
+    label: repo,
+  }));
+}
+
+function rssFeedsFromUrls(urls) {
+  return urls.map((url) => {
+    const known = DEFAULT_RSS_FEEDS.find((f) => f.url === url);
+    if (known) return { ...known };
+    // Derive name from URL domain
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, "");
+      return { name: hostname, url };
+    } catch {
+      return { name: url, url };
+    }
+  });
+}
+
+async function validateRssFeeds(feeds) {
+  const script = `
+import json
+import sys
+import urllib.request
+
+feeds = json.loads(sys.stdin.read())
+valid = []
+invalid = []
+
+for feed in feeds:
+    url = feed.get("url", "")
+    name = feed.get("name", url)
+    req = urllib.request.Request(url, headers={"User-Agent": "ai-newsletter-onboard/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read(2048).decode("utf-8", errors="replace")
+            if "<rss" in body or "<feed" in body or "<channel" in body or "<?xml" in body:
+                valid.append({"name": name, "url": url})
+            else:
+                invalid.append(name)
+    except Exception:
+        invalid.append(name)
+
+print(json.dumps({"valid": valid, "invalid": invalid}))
+`;
+  const result = spawnSync("python3", ["-c", script], {
+    input: JSON.stringify(feeds),
+    encoding: "utf-8",
+  });
+  if (result.status !== 0) {
+    return { valid: [], invalid: feeds.map((f) => f.name || f.url) };
+  }
+  try {
+    return JSON.parse(result.stdout);
+  } catch {
+    return { valid: [], invalid: feeds.map((f) => f.name || f.url) };
+  }
+}
+
+async function validateGithubRepos(repos) {
+  const script = `
+import json
+import os
+import sys
+import urllib.request
+
+repos = json.loads(sys.stdin.read())
+valid = []
+invalid = []
+token = os.environ.get("GITHUB_TOKEN", "").strip()
+
+for repo in repos:
+    url = f"https://api.github.com/repos/{repo}"
+    headers = {"User-Agent": "ai-newsletter-onboard/1.0", "Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("full_name"):
+                valid.append(data["full_name"])
+            else:
+                invalid.append(repo)
+    except Exception:
+        invalid.append(repo)
+
+print(json.dumps({"valid": valid, "invalid": invalid}))
+`;
+  const result = spawnSync("python3", ["-c", script], {
+    input: JSON.stringify(repos),
+    encoding: "utf-8",
+  });
+  if (result.status !== 0) {
+    return { valid: [], invalid: [...repos] };
+  }
+  try {
+    return JSON.parse(result.stdout);
+  } catch {
+    return { valid: [], invalid: [...repos] };
+  }
 }
 
 function randomCode() {
@@ -846,7 +998,9 @@ function validateGeneratedConfig(config) {
   if (!Array.isArray(config.platforms) || config.platforms.length === 0) {
     throw new Error("Generated config must include at least one platform");
   }
-  const invalidPlatforms = config.platforms.filter((platform) => !PLATFORM_OPTIONS.some((option) => option.value === platform));
+  const invalidPlatforms = config.platforms.filter(
+    (platform) => !PLATFORM_OPTIONS.some((option) => option.value === platform),
+  );
   if (invalidPlatforms.length > 0) {
     throw new Error(`Generated config has unsupported platforms: ${invalidPlatforms.join(", ")}`);
   }
@@ -1026,6 +1180,14 @@ function previousStep(steps, index, state) {
       i -= 1;
       continue;
     }
+    if (step === "rss_feeds" && !state.platforms?.includes("rss")) {
+      i -= 1;
+      continue;
+    }
+    if (step === "github_repos" && !state.platforms?.includes("github_releases")) {
+      i -= 1;
+      continue;
+    }
     return i;
   }
   return 0;
@@ -1058,6 +1220,8 @@ async function runWizard() {
     backendSettings: existingConfig.backend?.settings || {},
     platforms: [...(existingConfig.platforms?.length ? existingConfig.platforms : DEFAULT_PLATFORMS)],
     subreddits: [...(existingConfig.subreddits?.length ? existingConfig.subreddits : DEFAULT_SUBREDDITS)],
+    rssFeeds: [...(existingConfig.rss_feeds?.length ? existingConfig.rss_feeds : DEFAULT_RSS_FEEDS)],
+    githubRepos: [...(existingConfig.github_repos?.length ? existingConfig.github_repos : DEFAULT_GITHUB_REPOS)],
     telegram: {
       enabled: existingConfig.telegram?.enabled ?? true,
       bot_token: existingConfig.telegram?.bot_token || "",
@@ -1083,6 +1247,8 @@ async function runWizard() {
     "backend_settings",
     "platforms",
     "subreddits",
+    "rss_feeds",
+    "github_repos",
     "delivery_platform",
     "telegram_bot_token",
     "telegram_chat_id",
@@ -1102,6 +1268,16 @@ async function runWizard() {
     }
 
     if ((step === "rsshub_url" || step === "threads_accounts") && !state.platforms.includes("threads")) {
+      index += 1;
+      continue;
+    }
+
+    if (step === "rss_feeds" && !state.platforms.includes("rss")) {
+      index += 1;
+      continue;
+    }
+
+    if (step === "github_repos" && !state.platforms.includes("github_releases")) {
       index += 1;
       continue;
     }
@@ -1309,6 +1485,91 @@ async function runWizard() {
           continue;
         }
         state.subreddits = checked.valid;
+      }
+      index += 1;
+      continue;
+    }
+
+    if (step === "rss_feeds") {
+      const feedOpts = rssFeedOptions(state.rssFeeds);
+      const selectedUrls = await askMultiselect(
+        "Select RSS feeds to monitor",
+        feedOpts,
+        state.rssFeeds.map((f) => f.url),
+      );
+      if (selectedUrls === BACK) {
+        index = previousStep(steps, index, state);
+        continue;
+      }
+      const extraRaw = await askText(
+        "Add custom RSS feed URLs (comma-separated, optional)",
+        "",
+        "https://example.com/rss.xml, https://...",
+      );
+      if (extraRaw === BACK) {
+        index = previousStep(steps, index, state);
+        continue;
+      }
+      const extraUrls = parseCsv(extraRaw).filter((u) => u.startsWith("http"));
+      const allUrls = uniqueList([...(selectedUrls || []), ...extraUrls]);
+      state.rssFeeds = rssFeedsFromUrls(allUrls);
+      if (state.rssFeeds.length === 0) {
+        await note("At least one RSS feed is required when RSS is enabled.", "Validation");
+        continue;
+      }
+      // Validate only newly added custom feeds
+      const customFeeds = state.rssFeeds.filter((f) => !DEFAULT_RSS_FEEDS.some((d) => d.url === f.url));
+      if (customFeeds.length > 0) {
+        const checked = await validateRssFeeds(customFeeds);
+        if (checked.invalid.length) {
+          await note(
+            `Invalid RSS feeds: ${checked.invalid.join(", ")}\nPlease correct them and try again.`,
+            "RSS validation failed",
+          );
+          continue;
+        }
+      }
+      index += 1;
+      continue;
+    }
+
+    if (step === "github_repos") {
+      const repoOpts = githubRepoOptions(state.githubRepos);
+      const selectedRepos = await askMultiselect(
+        "Select GitHub repositories to track releases",
+        repoOpts,
+        state.githubRepos,
+      );
+      if (selectedRepos === BACK) {
+        index = previousStep(steps, index, state);
+        continue;
+      }
+      const extraRaw = await askText(
+        "Add extra repos (owner/repo, comma-separated, optional)",
+        "",
+        "owner/repo, ...",
+      );
+      if (extraRaw === BACK) {
+        index = previousStep(steps, index, state);
+        continue;
+      }
+      const extraRepos = parseCsv(extraRaw).filter((r) => r.includes("/"));
+      state.githubRepos = uniqueList([...(selectedRepos || []), ...extraRepos]);
+      if (state.githubRepos.length === 0) {
+        await note("At least one repository is required when GitHub Releases is enabled.", "Validation");
+        continue;
+      }
+      // Validate only newly added custom repos
+      const customRepos = state.githubRepos.filter((r) => !DEFAULT_GITHUB_REPOS.includes(r));
+      if (customRepos.length > 0) {
+        const checked = await validateGithubRepos(customRepos);
+        if (checked.invalid.length) {
+          await note(
+            `Invalid repositories: ${checked.invalid.join(", ")}\nPlease correct them and try again.`,
+            "GitHub validation failed",
+          );
+          continue;
+        }
       }
       index += 1;
       continue;

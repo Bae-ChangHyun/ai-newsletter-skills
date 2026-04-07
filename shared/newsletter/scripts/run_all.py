@@ -21,23 +21,21 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "..", ".data", "config.json")
 
 COLLECTOR_MAP = {
-    "hn": "collectors.hn",
+    "rss": "collectors.rss",
     "reddit": "collectors.reddit",
-    "geeknews": "collectors.geeknews",
-    "tldr": "collectors.tldr",
+    "github_releases": "collectors.github_releases",
     "threads": "collectors.threads",
     "velopers": "collectors.velopers",
     "devday": "collectors.devday",
 }
 
-DEFAULT_PLATFORMS = ["hn", "reddit", "geeknews", "tldr", "threads", "velopers", "devday"]
+DEFAULT_PLATFORMS = ["rss", "reddit", "github_releases", "threads", "velopers", "devday"]
 
 # Minimum score thresholds per platform (0 = no filtering)
 MIN_SCORE = {
-    "hn": 3,
+    "rss": 0,
     "reddit": 3,
-    "geeknews": 5,
-    "tldr": 0,
+    "github_releases": 0,
     "threads": 0,
     "velopers": 0,
     "devday": 0,
@@ -86,6 +84,10 @@ def run_collector(platform, config):
             kwargs["accounts"] = config["threads_accounts"]
         if "rsshub_url" in config:
             kwargs["rsshub_url"] = config["rsshub_url"]
+    elif platform == "rss" and "rss_feeds" in config:
+        kwargs["feeds"] = config["rss_feeds"]
+    elif platform == "github_releases" and "github_repos" in config:
+        kwargs["repos"] = config["github_repos"]
 
     return mod.collect(**kwargs)
 

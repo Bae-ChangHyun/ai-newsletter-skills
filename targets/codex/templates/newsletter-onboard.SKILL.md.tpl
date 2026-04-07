@@ -63,8 +63,10 @@ Write JSON in this shape, omitting unused optional keys:
 ```json
 {
   "language": "ko",
-  "platforms": ["hn", "reddit", "tldr"],
+  "platforms": ["hn", "reddit", "rss", "github_releases"],
   "subreddits": ["OpenAI", "LocalLLaMA"],
+  "rss_feeds": [{"name": "OpenAI Blog", "url": "https://openai.com/blog/rss.xml"}],
+  "github_repos": ["pytorch/pytorch", "langchain-ai/langchain"],
   "rsshub_url": "http://localhost:1200",
   "threads_accounts": ["claudeai", "openai"],
   "telegram": {

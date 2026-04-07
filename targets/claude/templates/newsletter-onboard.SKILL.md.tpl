@@ -73,8 +73,10 @@ cat __RUNTIME_ROOT__/.data/config.json 2>/dev/null
 ```json
 {
   "language": "ko",
-  "platforms": ["hn", "reddit", "tldr"],
+  "platforms": ["hn", "reddit", "rss", "github_releases"],
   "subreddits": ["OpenAI", "LocalLLaMA"],
+  "rss_feeds": [{"name": "OpenAI Blog", "url": "https://openai.com/blog/rss.xml"}],
+  "github_repos": ["pytorch/pytorch", "langchain-ai/langchain"],
   "rsshub_url": "http://localhost:1200",
   "threads_accounts": ["claudeai", "openai"],
   "telegram": {

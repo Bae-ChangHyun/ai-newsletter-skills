@@ -10,8 +10,10 @@ Requirements:
       "type": "claude|codex|github_copilot|openai",
       "settings": {}
     },
-    "platforms": ["hn", "reddit"],
+    "platforms": ["hn", "reddit", "rss", "github_releases"],
     "subreddits": ["OpenAI"],
+    "rss_feeds": [{"name": "OpenAI Blog", "url": "https://openai.com/blog/rss.xml"}],
+    "github_repos": ["pytorch/pytorch"],
     "rsshub_url": "http://localhost:1200",
     "threads_accounts": ["claudeai"],
     "telegram": {
@@ -26,7 +28,9 @@ Requirements:
     }
   }
 - Omit optional keys when they are empty.
-- Supported `platforms` values are: `hn`, `reddit`, `geeknews`, `tldr`, `devday`, `velopers`, `threads`.
+- Supported `platforms` values are: `rss`, `reddit`, `github_releases`, `devday`, `velopers`, `threads`.
+- `rss_feeds` is an array of `{name, url}` objects. Include when `rss` is in platforms.
+- `github_repos` is an array of `"owner/repo"` strings. Include when `github_releases` is in platforms.
 - Keep `backend.settings` exactly aligned with the selected backend:
   - `claude`: empty object
   - `codex`: empty object
